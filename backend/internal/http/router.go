@@ -468,6 +468,30 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB) {
 		return publicThemeExercises(c, db, themeID, "workbook")
 	})
 
+		app.Get("/api/public/themes/:id/vocabulary", func(c *fiber.Ctx) error {
+		themeID, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id темы")
+		}
+		return publicThemeVocabulary(c, db, themeID)
+	})
+
+	app.Get("/api/public/themes/:id/textbook-full", func(c *fiber.Ctx) error {
+		themeID, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id темы")
+		}
+		return publicThemeFull(c, db, themeID, "textbook")
+	})
+
+	app.Get("/api/public/themes/:id/workbook-full", func(c *fiber.Ctx) error {
+		themeID, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id темы")
+		}
+		return publicThemeFull(c, db, themeID, "workbook")
+	})
+
 	app.Get("/api/generation-runs", func(c *fiber.Ctx) error {
 		var rows []map[string]any
 		err := db.Table("learning.generation_runs").
@@ -567,6 +591,115 @@ func publicThemeExercises(c *fiber.Ctx, db *gorm.DB, themeID int64, targetMode s
 		"target_mode": targetMode,
 		"exercises": exercises,
 	})
+}
+
+func publicThemeVocabulary(c *fiber.Ctx, db *gorm.DB, themeID int64) error {
+	theme, found, err := loadPublishedTheme(db, themeID)
+	if err != nil {
+		return errorJSON(c, 500, err.Error())
+	}
+	if !found {
+		return errorJSON(c, 404, "опубликованная тема не найдена")
+	}
+
+	vocabulary, err := loadThemeVocabulary(db, themeID)
+	if err != nil {
+		return errorJSON(c, 500, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"theme": theme,
+		"items": vocabulary,
+	})
+}
+
+func publicThemeFull(c *fiber.Ctx, db *gorm.DB, themeID int64, targetMode string) error {
+	theme, found, err := loadPublishedTheme(db, themeID)
+	if err != nil {
+		return errorJSON(c, 500, err.Error())
+	}
+	if !found {
+		return errorJSON(c, 404, "опубликованная тема не найдена")
+	}
+
+	vocabulary, err := loadThemeVocabulary(db, themeID)
+	if err != nil {
+		return errorJSON(c, 500, err.Error())
+	}
+
+	exercises, err := loadPublishedThemeExercises(db, themeID, targetMode)
+	if err != nil {
+		return errorJSON(c, 500, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"theme": theme,
+		"target_mode": targetMode,
+		"vocabulary": vocabulary,
+		"exercises": exercises,
+	})
+}
+
+func loadPublishedTheme(db *gorm.DB, themeID int64) (map[string]any, bool, error) {
+	var rows []map[string]any
+	err := db.Table("learning.themes t").
+		Select(`
+			t.id,
+			t.course_id,
+			t.title,
+			t.description,
+			t.order_index,
+			t.status,
+			c.title as course_title
+		`).
+		Joins("join learning.courses c on c.id = t.course_id").
+		Where("t.id = ? and t.status = 'published' and c.status = 'published'", themeID).
+		Find(&rows).Error
+	if err != nil {
+		return nil, false, err
+	}
+	if len(rows) == 0 {
+		return nil, false, nil
+	}
+	return rows[0], true, nil
+}
+
+func loadThemeVocabulary(db *gorm.DB, themeID int64) ([]map[string]any, error) {
+	var rows []map[string]any
+	err := db.Table("learning.theme_translated_words ttw").
+		Select(`
+			ttw.id,
+			ttw.theme_id,
+			ttw.translated_word_id,
+			ttw.difficulty_level,
+			ttw.is_required,
+			tw.display_text,
+			w.name as word_name,
+			c.name as concept_name,
+			c.description as concept_description,
+			g.name as gesture_name,
+			g.video_url,
+			g.description as gesture_description
+		`).
+		Joins("join linguistic.translated_words tw on tw.id = ttw.translated_word_id").
+		Joins("join linguistic.words w on w.id = tw.word_id").
+		Joins("join linguistic.concepts c on c.id = tw.concept_id").
+		Joins("left join linguistic.gestures g on g.id = tw.gesture_id").
+		Where("ttw.theme_id = ?", themeID).
+		Order("ttw.difficulty_level, w.name, tw.id").
+		Find(&rows).Error
+	return rows, err
+}
+
+func loadPublishedThemeExercises(db *gorm.DB, themeID int64, targetMode string) ([]models.Exercise, error) {
+	var exercises []models.Exercise
+	err := db.Preload("Segments", func(db *gorm.DB) *gorm.DB {
+		return db.Order("position_index")
+	}).
+		Where("theme_id = ? and target_mode = ? and status = 'approved'", themeID, targetMode).
+		Order("id").
+		Find(&exercises).Error
+	return exercises, err
 }
 
 func audit(db *gorm.DB, userID int64, action string, entityType string, entityID int64) {
