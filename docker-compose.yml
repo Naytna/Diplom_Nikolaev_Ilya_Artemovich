@@ -35,5 +35,17 @@ services:
       postgres:
         condition: service_healthy
 
+  web:
+    image: node:24-slim
+    container_name: rsl_learning_web
+    working_dir: /app/web
+    command: sh -lc "npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web:/app/web
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:
