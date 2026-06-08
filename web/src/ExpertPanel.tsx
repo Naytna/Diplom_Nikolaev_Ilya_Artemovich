@@ -104,6 +104,39 @@ function getWordLabel(word: TranslatedWord) {
   return word.display_text || word.word_name || `ID ${word.id}`
 }
 
+function getStatusLabel(status: string) {
+  if (status === 'completed') {
+    return 'завершено'
+  }
+
+  if (status === 'failed') {
+    return 'ошибка'
+  }
+
+  if (status === 'running') {
+    return 'выполняется'
+  }
+
+  return status
+}
+
+function formatDateTime(value: string) {
+  if (!value) {
+    return 'дата не указана'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date)
+}
+
 export default function ExpertPanel() {
   const [courses, setCourses] = useState<Course[]>([])
   const [themes, setThemes] = useState<Theme[]>([])
@@ -497,7 +530,19 @@ export default function ExpertPanel() {
 
   const selectedCourse = courses.find((course) => course.id === selectedCourseId)
   const selectedTheme = themes.find((theme) => theme.id === selectedThemeId)
+  
+  const sortedRuns = [...runs].sort((a, b) => b.id - a.id)
 
+  const getThemeLabel = (themeId: number) => {
+    const theme = themes.find((item) => item.id === themeId)
+
+    if (theme) {
+        return theme.title
+    }
+
+    return `ID ${themeId}`
+    }
+  
   return (
     <section className="expertLayout">
       <div className="expertHeader">
@@ -685,18 +730,20 @@ export default function ExpertPanel() {
         </section>
 
         <section className="expertCard">
-          <h3>Журнал генераций</h3>
+            <h3>Журнал генераций</h3>
 
-          <div className="compactLog">
-            {runs.slice(0, 8).map((run) => (
-              <div key={run.id}>
-                <strong>Тема {run.theme_id}</strong>
-                <span>
-                  {run.status}: создано {run.generated_exercises}, отклонено {run.rejected_examples}
-                </span>
-              </div>
-            ))}
-          </div>
+            <div className="compactLog">
+            {sortedRuns.slice(0, 8).map((run) => (
+                <div key={run.id}>
+                    <strong>Запуск #{run.id}</strong>
+                    <span>Тема: {getThemeLabel(run.theme_id)}</span>
+                    <span>{formatDateTime(run.created_at)}</span>
+                    <span>
+                    {getStatusLabel(run.status)}: найдено {run.found_examples}, создано {run.generated_exercises}, отклонено {run.rejected_examples}
+                    </span>
+                </div>
+                ))}
+            </div>
         </section>
 
         <section className="expertCard">
