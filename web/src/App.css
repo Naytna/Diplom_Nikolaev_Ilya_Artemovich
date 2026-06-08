@@ -344,3 +344,272 @@ h1 {
     flex-direction: column;
   }
 }
+
+.topActions {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: #e9eef4;
+  border-radius: 16px;
+}
+
+.navButton {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: transparent;
+  color: #415160;
+  cursor: pointer;
+}
+
+.navButton.active {
+  background: #ffffff;
+  color: #17202a;
+  box-shadow: 0 8px 18px rgba(20, 30, 40, 0.08);
+}
+
+.successBox {
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #edf8ef;
+  border: 1px solid #b8dfc0;
+  color: #1f6b2e;
+}
+
+.expertLayout {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.expertHeader {
+  margin-bottom: 18px;
+  padding: 22px;
+  background: #ffffff;
+  border: 1px solid #d8dee6;
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(20, 30, 40, 0.06);
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.expertGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.expertCard {
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #d8dee6;
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(20, 30, 40, 0.06);
+}
+
+.expertCard.wide {
+  grid-column: 1 / -1;
+}
+
+.expertCard h3 {
+  margin-bottom: 14px;
+}
+
+.formBlock,
+.searchBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.formBlock input,
+.formBlock textarea,
+.searchBlock input {
+  width: 100%;
+  border: 1px solid #d8dee6;
+  border-radius: 12px;
+  padding: 11px 12px;
+  font: inherit;
+  background: #ffffff;
+  color: #17202a;
+}
+
+.formBlock textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.formBlock button,
+.searchBlock button,
+.secondaryButton,
+.mainAction,
+.reviewActions button {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: #305f9f;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.formBlock button:hover,
+.searchBlock button:hover,
+.secondaryButton:hover,
+.mainAction:hover,
+.reviewActions button:hover {
+  background: #23476f;
+}
+
+.adminList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.adminItem {
+  width: 100%;
+  border: 1px solid #d8dee6;
+  border-radius: 14px;
+  padding: 12px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #17202a;
+}
+
+.adminItem.active {
+  border-color: #305f9f;
+  background: #edf4ff;
+}
+
+.adminItem span {
+  color: #61707f;
+}
+
+.searchBlock {
+  flex-direction: row;
+}
+
+.searchBlock input {
+  flex: 1;
+}
+
+.searchResults {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.searchResults button {
+  border: 1px solid #d8dee6;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #fbfcfd;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #17202a;
+}
+
+.searchResults span {
+  color: #61707f;
+  font-size: 13px;
+}
+
+.adminLexicon button {
+  border: 0;
+  cursor: pointer;
+}
+
+.actionRow {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.actionRow span {
+  color: #61707f;
+}
+
+.mainAction:disabled {
+  background: #9aa7b5;
+  cursor: not-allowed;
+}
+
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.reviewCard {
+  padding: 16px;
+  border: 1px solid #e1e6ed;
+  border-radius: 16px;
+  background: #fbfcfd;
+}
+
+.reviewTop {
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reviewTop span {
+  color: #61707f;
+}
+
+.reviewCard p {
+  margin-bottom: 12px;
+  color: #61707f;
+}
+
+.reviewActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.compactLog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.compactLog div {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f6f8fa;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compactLog span {
+  color: #61707f;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .expertGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .expertHeader,
+  .searchBlock,
+  .topActions {
+    flex-direction: column;
+  }
+}

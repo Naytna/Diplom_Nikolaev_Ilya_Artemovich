@@ -1,0 +1,717 @@
+import { type FormEvent, useEffect, useState } from 'react'
+
+type Course = {
+  id: number
+  title: string
+  description: string
+  status: string
+  themes_count?: number | string
+}
+
+type Theme = {
+  id: number
+  course_id: number
+  title: string
+  description: string
+  order_index: number
+  status: string
+}
+
+type VocabularyItem = {
+  id: number
+  theme_id: number
+  translated_word_id: number
+  difficulty_level: number
+  is_required: boolean
+  display_text: string
+  word_name: string
+  concept_name: string
+  gesture_name: string
+}
+
+type TranslatedWord = {
+  id: number
+  display_text?: string
+  word_name?: string
+  concept_name?: string
+  gesture_name?: string
+}
+
+type ExerciseSegment = {
+  id: number
+  exercise_id: number
+  translated_word_id: number
+  word_text: string
+  gesture_name: string
+  position_index: number
+}
+
+type Exercise = {
+  id: number
+  theme_id: number
+  exercise_type: string
+  target_mode: string
+  phrase: string
+  status: string
+  explanation: string
+  segments?: ExerciseSegment[]
+}
+
+type GenerationRun = {
+  id: number
+  theme_id: number
+  status: string
+  found_examples: number
+  generated_exercises: number
+  rejected_examples: number
+  created_at: string
+}
+
+type AuditLog = {
+  id: number
+  user_id: number
+  action: string
+  entity_type: string
+  entity_id: number
+  created_at: string
+}
+
+const API_URL = 'http://localhost:18080/api'
+
+async function api<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options?.headers ?? {}),
+    },
+    ...options,
+  })
+
+  const text = await response.text()
+
+  if (!response.ok) {
+    throw new Error(text || `Ошибка запроса: ${response.status}`)
+  }
+
+  if (!text) {
+    return null as T
+  }
+
+  return JSON.parse(text) as T
+}
+
+function getWordLabel(word: TranslatedWord) {
+  return word.display_text || word.word_name || `ID ${word.id}`
+}
+
+export default function ExpertPanel() {
+  const [courses, setCourses] = useState<Course[]>([])
+  const [themes, setThemes] = useState<Theme[]>([])
+  const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([])
+  const [searchResults, setSearchResults] = useState<TranslatedWord[]>([])
+  const [exercises, setExercises] = useState<Exercise[]>([])
+  const [runs, setRuns] = useState<GenerationRun[]>([])
+  const [audit, setAudit] = useState<AuditLog[]>([])
+
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
+  const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null)
+
+  const [courseTitle, setCourseTitle] = useState('')
+  const [courseDescription, setCourseDescription] = useState('')
+  const [themeTitle, setThemeTitle] = useState('')
+  const [themeDescription, setThemeDescription] = useState('')
+  const [themeOrder, setThemeOrder] = useState('1')
+  const [search, setSearch] = useState('')
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function loadCourses() {
+    const data = await api<Course[]>('/courses')
+    setCourses(data)
+
+    if (!selectedCourseId && data.length > 0) {
+      setSelectedCourseId(data[0].id)
+    }
+  }
+
+  async function loadThemes(courseId: number) {
+    const data = await api<Theme[]>(`/courses/${courseId}/themes`)
+    setThemes(data)
+
+    if (data.length > 0) {
+      setSelectedThemeId(data[0].id)
+    } else {
+      setSelectedThemeId(null)
+      setVocabulary([])
+      setExercises([])
+    }
+  }
+
+  async function loadThemeData(themeId: number) {
+    const [themeVocabulary, themeExercises] = await Promise.all([
+      api<VocabularyItem[]>(`/themes/${themeId}/translated-words`),
+      api<Exercise[]>(`/themes/${themeId}/exercises`),
+    ])
+
+    setVocabulary(themeVocabulary)
+    setExercises(themeExercises)
+  }
+
+  async function loadLogs() {
+    const [generationRuns, auditLogs] = await Promise.all([
+      api<GenerationRun[]>('/generation-runs'),
+      api<AuditLog[]>('/audit'),
+    ])
+
+    setRuns(generationRuns)
+    setAudit(auditLogs)
+  }
+
+  async function refreshAll() {
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await loadCourses()
+      await loadLogs()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Неизвестная ошибка')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void refreshAll()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedCourseId) {
+      return
+    }
+
+    setError('')
+    setLoading(true)
+
+    loadThemes(selectedCourseId)
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Не удалось загрузить темы')
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [selectedCourseId])
+
+  useEffect(() => {
+    if (!selectedThemeId) {
+      return
+    }
+
+    setError('')
+    setLoading(true)
+
+    loadThemeData(selectedThemeId)
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Не удалось загрузить данные темы')
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [selectedThemeId])
+
+  async function createCourse(event: FormEvent) {
+    event.preventDefault()
+
+    if (!courseTitle.trim()) {
+      setError('Введите название курса')
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      const created = await api<Course>('/courses', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: courseTitle,
+          description: courseDescription,
+        }),
+      })
+
+      setCourseTitle('')
+      setCourseDescription('')
+      await loadCourses()
+      setSelectedCourseId(created.id)
+      setMessage('Курс создан')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось создать курс')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function publishCourse() {
+    if (!selectedCourseId) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await api(`/courses/${selectedCourseId}/publish`, {
+        method: 'POST',
+      })
+
+      await loadCourses()
+      setMessage('Курс опубликован')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось опубликовать курс')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function createTheme(event: FormEvent) {
+    event.preventDefault()
+
+    if (!selectedCourseId) {
+      setError('Сначала выберите курс')
+      return
+    }
+
+    if (!themeTitle.trim()) {
+      setError('Введите название темы')
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      const created = await api<Theme>(`/courses/${selectedCourseId}/themes`, {
+        method: 'POST',
+        body: JSON.stringify({
+          title: themeTitle,
+          description: themeDescription,
+          order_index: Number(themeOrder) || 1,
+        }),
+      })
+
+      setThemeTitle('')
+      setThemeDescription('')
+      setThemeOrder('1')
+      await loadThemes(selectedCourseId)
+      setSelectedThemeId(created.id)
+      setMessage('Тема создана')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось создать тему')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function publishTheme() {
+    if (!selectedThemeId) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await api(`/themes/${selectedThemeId}/publish`, {
+        method: 'POST',
+      })
+
+      if (selectedCourseId) {
+        await loadThemes(selectedCourseId)
+      }
+
+      setMessage('Тема опубликована')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось опубликовать тему')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function searchWords(event: FormEvent) {
+    event.preventDefault()
+
+    if (!search.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      const data = await api<TranslatedWord[]>(`/translated-words?search=${encodeURIComponent(search)}`)
+      setSearchResults(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось выполнить поиск')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function addWordToTheme(translatedWordId: number) {
+    if (!selectedThemeId) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await api(`/themes/${selectedThemeId}/translated-words`, {
+        method: 'POST',
+        body: JSON.stringify({
+          translated_word_id: translatedWordId,
+          difficulty_level: 1,
+          is_required: true,
+        }),
+      })
+
+      await loadThemeData(selectedThemeId)
+      setMessage('Слово добавлено в тему')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось добавить слово')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function removeWordFromTheme(translatedWordId: number) {
+    if (!selectedThemeId) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await api(`/themes/${selectedThemeId}/translated-words/${translatedWordId}`, {
+        method: 'DELETE',
+      })
+
+      await loadThemeData(selectedThemeId)
+      setMessage('Слово удалено из темы')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось удалить слово')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function generateExercises() {
+    if (!selectedThemeId) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      const result = await api<GenerationRun>(`/themes/${selectedThemeId}/generate`, {
+        method: 'POST',
+      })
+
+      await loadThemeData(selectedThemeId)
+      await loadLogs()
+
+      setMessage(
+        `Генерация завершена: найдено ${result.found_examples}, создано ${result.generated_exercises}, отклонено ${result.rejected_examples}`,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось запустить генерацию')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function approveExercise(exerciseId: number) {
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await api(`/exercises/${exerciseId}/approve`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          reviewer_id: 1,
+          comment: 'Проверено через экспертный интерфейс',
+        }),
+      })
+
+      if (selectedThemeId) {
+        await loadThemeData(selectedThemeId)
+      }
+
+      setMessage('Упражнение одобрено')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось одобрить упражнение')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function rejectExercise(exerciseId: number) {
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await api(`/exercises/${exerciseId}/reject`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          reviewer_id: 1,
+          comment: 'Отклонено через экспертный интерфейс',
+        }),
+      })
+
+      if (selectedThemeId) {
+        await loadThemeData(selectedThemeId)
+      }
+
+      setMessage('Упражнение отклонено')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось отклонить упражнение')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const selectedCourse = courses.find((course) => course.id === selectedCourseId)
+  const selectedTheme = themes.find((theme) => theme.id === selectedThemeId)
+
+  return (
+    <section className="expertLayout">
+      <div className="expertHeader">
+        <div>
+          <div className="eyebrow">Экспертная часть</div>
+          <h2>Управление генерацией заданий</h2>
+        </div>
+
+        <button className="modeButton active" onClick={refreshAll}>
+          Обновить
+        </button>
+      </div>
+
+      {loading && <div className="loadingBox">Выполняется запрос...</div>}
+      {message && <div className="successBox">{message}</div>}
+      {error && <div className="errorBox">{error}</div>}
+
+      <div className="expertGrid">
+        <section className="expertCard">
+          <h3>Курсы</h3>
+
+          <form className="formBlock" onSubmit={createCourse}>
+            <input
+              value={courseTitle}
+              onChange={(event) => setCourseTitle(event.target.value)}
+              placeholder="Название курса"
+            />
+            <textarea
+              value={courseDescription}
+              onChange={(event) => setCourseDescription(event.target.value)}
+              placeholder="Описание курса"
+            />
+            <button type="submit">Создать курс</button>
+          </form>
+
+          <div className="adminList">
+            {courses.map((course) => (
+              <button
+                key={course.id}
+                className={course.id === selectedCourseId ? 'adminItem active' : 'adminItem'}
+                onClick={() => setSelectedCourseId(course.id)}
+              >
+                <strong>{course.title}</strong>
+                <span>{course.status}</span>
+              </button>
+            ))}
+          </div>
+
+          {selectedCourse && (
+            <button className="secondaryButton" onClick={publishCourse}>
+              Опубликовать выбранный курс
+            </button>
+          )}
+        </section>
+
+        <section className="expertCard">
+          <h3>Темы курса</h3>
+
+          <form className="formBlock" onSubmit={createTheme}>
+            <input
+              value={themeTitle}
+              onChange={(event) => setThemeTitle(event.target.value)}
+              placeholder="Название темы"
+            />
+            <textarea
+              value={themeDescription}
+              onChange={(event) => setThemeDescription(event.target.value)}
+              placeholder="Описание темы"
+            />
+            <input
+              value={themeOrder}
+              onChange={(event) => setThemeOrder(event.target.value)}
+              placeholder="Порядок"
+            />
+            <button type="submit">Создать тему</button>
+          </form>
+
+          <div className="adminList">
+            {themes.map((theme) => (
+              <button
+                key={theme.id}
+                className={theme.id === selectedThemeId ? 'adminItem active' : 'adminItem'}
+                onClick={() => setSelectedThemeId(theme.id)}
+              >
+                <strong>{theme.title}</strong>
+                <span>{theme.status}</span>
+              </button>
+            ))}
+          </div>
+
+          {selectedTheme && (
+            <button className="secondaryButton" onClick={publishTheme}>
+              Опубликовать выбранную тему
+            </button>
+          )}
+        </section>
+
+        <section className="expertCard wide">
+          <h3>Словарь выбранной темы</h3>
+
+          {!selectedTheme && <p className="muted">Выберите тему</p>}
+
+          {selectedTheme && (
+            <>
+              <form className="searchBlock" onSubmit={searchWords}>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Поиск слова, например: хлеб"
+                />
+                <button type="submit">Найти</button>
+              </form>
+
+              <div className="searchResults">
+                {searchResults.map((word) => (
+                  <button key={word.id} onClick={() => addWordToTheme(word.id)}>
+                    <strong>{getWordLabel(word)}</strong>
+                    <span>{word.gesture_name || 'жест'}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="lexicon adminLexicon">
+                {vocabulary.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => removeWordFromTheme(item.translated_word_id)}
+                    title="Удалить из темы"
+                  >
+                    {item.display_text || item.word_name}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+
+        <section className="expertCard wide">
+          <h3>Генерация и проверка упражнений</h3>
+
+          <div className="actionRow">
+            <button className="mainAction" onClick={generateExercises} disabled={!selectedThemeId}>
+              Сгенерировать задания по теме
+            </button>
+            <span>
+              Тема: {selectedTheme ? selectedTheme.title : 'не выбрана'}
+            </span>
+          </div>
+
+          <div className="reviewList">
+            {exercises.map((exercise) => (
+              <article className="reviewCard" key={exercise.id}>
+                <div className="reviewTop">
+                  <strong>{exercise.phrase}</strong>
+                  <span>{exercise.status}</span>
+                </div>
+
+                <p>
+                  Режим: {exercise.target_mode}, тип: {exercise.exercise_type}
+                </p>
+
+                {exercise.segments && exercise.segments.length > 0 && (
+                  <div className="segments">
+                    {exercise.segments.map((segment) => (
+                      <div className="segment" key={segment.id}>
+                        <span>{segment.position_index}</span>
+                        <strong>{segment.gesture_name}</strong>
+                        <small>{segment.word_text}</small>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="reviewActions">
+                  <button onClick={() => approveExercise(exercise.id)}>
+                    Одобрить
+                  </button>
+                  <button onClick={() => rejectExercise(exercise.id)}>
+                    Отклонить
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="expertCard">
+          <h3>Журнал генераций</h3>
+
+          <div className="compactLog">
+            {runs.slice(0, 8).map((run) => (
+              <div key={run.id}>
+                <strong>Тема {run.theme_id}</strong>
+                <span>
+                  {run.status}: создано {run.generated_exercises}, отклонено {run.rejected_examples}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="expertCard">
+          <h3>Аудит действий</h3>
+
+          <div className="compactLog">
+            {audit.slice(0, 8).map((item) => (
+              <div key={item.id}>
+                <strong>{item.action}</strong>
+                <span>{item.entity_type} #{item.entity_id}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </section>
+  )
+}

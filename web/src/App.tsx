@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
+import ExpertPanel from './ExpertPanel'
 
 type Course = {
   id: number
@@ -75,6 +76,7 @@ type ThemeFull = {
 const API_URL = 'http://localhost:18080/api'
 
 function App() {
+  const [section, setSection] = useState<'public' | 'expert'>('public')
   const [courses, setCourses] = useState<Course[]>([])
   const [courseDetails, setCourseDetails] = useState<CourseDetails | null>(null)
   const [themeFull, setThemeFull] = useState<ThemeFull | null>(null)
@@ -195,10 +197,26 @@ function App() {
           <div className="eyebrow">Модуль генерации учебных заданий</div>
           <h1>Методические материалы РЖЯ</h1>
         </div>
-        <div className="statusBadge">public</div>
+        <div className="topActions">
+          <button
+            className={section === 'public' ? 'navButton active' : 'navButton'}
+            onClick={() => setSection('public')}
+          >
+            Публичная часть
+          </button>
+          <button
+            className={section === 'expert' ? 'navButton active' : 'navButton'}
+            onClick={() => setSection('expert')}
+          >
+            Экспертная часть
+          </button>
+        </div>
       </header>
 
-      <section className="workspace">
+      {section === 'expert' ? (
+        <ExpertPanel />
+      ) : (
+        <section className="workspace">
         <aside className="panel sidebar">
           <div className="panelHeader">
             <h2>Курсы</h2>
@@ -368,7 +386,8 @@ function App() {
             </>
           )}
         </section>
-      </section>
+        </section>
+      )}
     </main>
   )
 }
