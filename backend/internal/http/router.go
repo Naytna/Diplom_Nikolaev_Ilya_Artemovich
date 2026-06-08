@@ -399,6 +399,75 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB) {
 		return reviewExercise(c, db, "rejected")
 	})
 
+		app.Get("/api/public/courses", func(c *fiber.Ctx) error {
+		var rows []map[string]any
+		err := db.Table("learning.courses c").
+			Select(`
+				c.id,
+				c.title,
+				c.description,
+				c.status,
+				c.created_at,
+				count(t.id) as themes_count
+			`).
+			Joins("left join learning.themes t on t.course_id = c.id and t.status = 'published'").
+			Where("c.status = 'published'").
+			Group("c.id, c.title, c.description, c.status, c.created_at").
+			Order("c.id").
+			Find(&rows).Error
+		if err != nil {
+			return errorJSON(c, 500, err.Error())
+		}
+		return c.JSON(rows)
+	})
+
+	app.Get("/api/public/courses/:id", func(c *fiber.Ctx) error {
+		id, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id курса")
+		}
+		var courseRows []map[string]any
+		err = db.Table("learning.courses").
+			Select("id, title, description, status, created_at, updated_at").
+			Where("id = ? and status = 'published'", id).
+			Find(&courseRows).Error
+		if err != nil {
+			return errorJSON(c, 500, err.Error())
+		}
+		if len(courseRows) == 0 {
+			return errorJSON(c, 404, "опубликованный курс не найден")
+		}
+		var themes []map[string]any
+		err = db.Table("learning.themes").
+			Select("id, course_id, title, description, order_index, status, created_at, updated_at").
+			Where("course_id = ? and status = 'published'", id).
+			Order("order_index, id").
+			Find(&themes).Error
+		if err != nil {
+			return errorJSON(c, 500, err.Error())
+		}
+		return c.JSON(fiber.Map{
+			"course": courseRows[0],
+			"themes": themes,
+		})
+	})
+
+	app.Get("/api/public/themes/:id/textbook", func(c *fiber.Ctx) error {
+		themeID, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id темы")
+		}
+		return publicThemeExercises(c, db, themeID, "textbook")
+	})
+
+	app.Get("/api/public/themes/:id/workbook", func(c *fiber.Ctx) error {
+		themeID, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id темы")
+		}
+		return publicThemeExercises(c, db, themeID, "workbook")
+	})
+
 	app.Get("/api/generation-runs", func(c *fiber.Ctx) error {
 		var rows []map[string]any
 		err := db.Table("learning.generation_runs").
@@ -466,6 +535,38 @@ func parseID(c *fiber.Ctx, name string) (int64, error) {
 
 func errorJSON(c *fiber.Ctx, status int, message string) error {
 	return c.Status(status).JSON(fiber.Map{"error": message})
+}
+
+func publicThemeExercises(c *fiber.Ctx, db *gorm.DB, themeID int64, targetMode string) error {
+	var themeRows []map[string]any
+	err := db.Table("learning.themes t").
+		Select("t.id, t.course_id, t.title, t.description, t.order_index, t.status").
+		Joins("join learning.courses c on c.id = t.course_id").
+		Where("t.id = ? and t.status = 'published' and c.status = 'published'", themeID).
+		Find(&themeRows).Error
+	if err != nil {
+		return errorJSON(c, 500, err.Error())
+	}
+	if len(themeRows) == 0 {
+		return errorJSON(c, 404, "опубликованная тема не найдена")
+	}
+
+	var exercises []models.Exercise
+	err = db.Preload("Segments", func(db *gorm.DB) *gorm.DB {
+		return db.Order("position_index")
+	}).
+		Where("theme_id = ? and target_mode = ? and status = 'approved'", themeID, targetMode).
+		Order("id").
+		Find(&exercises).Error
+	if err != nil {
+		return errorJSON(c, 500, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"theme": themeRows[0],
+		"target_mode": targetMode,
+		"exercises": exercises,
+	})
 }
 
 func audit(db *gorm.DB, userID int64, action string, entityType string, entityID int64) {
