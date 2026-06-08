@@ -110,3 +110,14 @@ insert into linguistic.lit_example_segments (lit_example_id, translated_word_id,
 (10, 2, 'Молоко', 1),
 (10, 1, 'хлеб', 2),
 (10, 3, 'магазине', 3);
+
+select setval('learning.roles_id_seq', (select coalesce(max(id), 0) + 1 from learning.roles), false);
+select setval('learning.users_id_seq', (select coalesce(max(id), 0) + 1 from learning.users), false);
+select setval('learning.courses_id_seq', (select coalesce(max(id), 0) + 1 from learning.courses), false);
+select setval('learning.themes_id_seq', (select coalesce(max(id), 0) + 1 from learning.themes), false);
+select setval('learning.theme_translated_words_id_seq', (select coalesce(max(id), 0) + 1 from learning.theme_translated_words), false);
+select setval('learning.exercises_id_seq', (select coalesce(max(id), 0) + 1 from learning.exercises), false);
+select setval('learning.exercise_segments_id_seq', (select coalesce(max(id), 0) + 1 from learning.exercise_segments), false);
+select setval('learning.generation_runs_id_seq', (select coalesce(max(id), 0) + 1 from learning.generation_runs), false);
+select setval('learning.exercise_reviews_id_seq', (select coalesce(max(id), 0) + 1 from learning.exercise_reviews), false);
+select setval('learning.audit_logs_id_seq', (select coalesce(max(id), 0) + 1 from learning.audit_logs), false);
