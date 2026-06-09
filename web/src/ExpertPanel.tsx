@@ -183,6 +183,7 @@ export default function ExpertPanel() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [runs, setRuns] = useState<GenerationRun[]>([])
   const [audit, setAudit] = useState<AuditLog[]>([])
+  const [lastGenerationResult, setLastGenerationResult] = useState<GenerationRun | null>(null)
 
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
   const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null)
@@ -533,6 +534,8 @@ export default function ExpertPanel() {
       await loadThemeData(selectedThemeId)
       await loadLogs()
 
+      setLastGenerationResult(result)
+
       setMessage(
         `Генерация завершена: найдено ${result.found_examples}, создано ${result.generated_exercises}, отклонено ${result.rejected_examples}`,
       )
@@ -861,6 +864,27 @@ export default function ExpertPanel() {
                 Сгенерировать задания
               </button>
             </div>
+
+            {lastGenerationResult && (
+              <div className="generationSummary">
+                <div>
+                  <span>Найдено примеров</span>
+                  <strong>{lastGenerationResult.found_examples}</strong>
+                </div>
+                <div>
+                  <span>Создано упражнений</span>
+                  <strong>{lastGenerationResult.generated_exercises}</strong>
+                </div>
+                <div>
+                  <span>Отклонено примеров</span>
+                  <strong>{lastGenerationResult.rejected_examples}</strong>
+                </div>
+                <div>
+                  <span>Статус</span>
+                  <strong>{getStatusLabel(lastGenerationResult.status)}</strong>
+                </div>
+              </div>
+            )}
 
             {exerciseGroups.length === 0 && (
               <p className="muted">Для выбранной темы пока нет упражнений</p>
