@@ -666,3 +666,11 @@ h3 {
 .compactLog span {
   line-height: 1.35;
 }
+
+.expertSidebar .adminList {
+  margin-bottom: 16px;
+}
+
+.expertSidebar .secondaryButton.fullWidth {
+  margin-top: 4px;
+}

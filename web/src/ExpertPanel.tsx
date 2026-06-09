@@ -123,6 +123,38 @@ function getModeLabel(mode: string) {
   return mode
 }
 
+function getExerciseTypeLabel(type: string) {
+  if (type === 'translation_sequence') return 'Последовательность жестов'
+  if (type === 'word_matching') return 'Сопоставление слова и жеста'
+  if (type === 'sentence_translation') return 'Перевод предложения'
+
+  return type
+}
+
+function getActionLabel(action: string) {
+  if (action === 'approved') return 'Упражнение одобрено'
+  if (action === 'rejected') return 'Упражнение отклонено'
+  if (action === 'add_translated_word') return 'Слово добавлено в тему'
+  if (action === 'remove_translated_word') return 'Слово удалено из темы'
+  if (action === 'create_course') return 'Создан курс'
+  if (action === 'create_theme') return 'Создана тема'
+  if (action === 'publish_course') return 'Опубликован курс'
+  if (action === 'publish_theme') return 'Опубликована тема'
+  if (action === 'generate_exercises') return 'Запущена генерация'
+
+  return action
+}
+
+function getEntityLabel(entityType: string, entityId: number) {
+  if (entityType === 'exercise') return `упражнение №${entityId}`
+  if (entityType === 'theme') return `тема №${entityId}`
+  if (entityType === 'course') return `курс №${entityId}`
+  if (entityType === 'translated_word') return `слово №${entityId}`
+  if (entityType === 'generation_run') return `запуск №${entityId}`
+
+  return `${entityType} №${entityId}`
+}
+
 function formatDateTime(value: string) {
   if (!value) {
     return 'дата не указана'
@@ -143,6 +175,7 @@ function formatDateTime(value: string) {
 export default function ExpertPanel() {
   const [courses, setCourses] = useState<Course[]>([])
   const [themes, setThemes] = useState<Theme[]>([])
+  const [themeLabels, setThemeLabels] = useState<Record<number, string>>({})
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([])
   const [searchResults, setSearchResults] = useState<TranslatedWord[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
@@ -162,11 +195,33 @@ export default function ExpertPanel() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  async function loadThemeLabels(courseList: Course[]) {
+    const themeGroups = await Promise.all(
+      courseList.map(async (course) => {
+        try {
+          const data = await api<Theme[]>(`/courses/${course.id}/themes`)
+          return data ?? []
+        } catch {
+          return []
+        }
+      }),
+    )
+
+    const labels: Record<number, string> = {}
+
+    themeGroups.flat().forEach((theme) => {
+      labels[theme.id] = theme.title
+    })
+
+    setThemeLabels(labels)
+  }
+
   async function loadCourses() {
     const data = await api<Course[]>('/courses')
     const safeData = data ?? []
 
     setCourses(safeData)
+    await loadThemeLabels(safeData)
 
     if (!selectedCourseId && safeData.length > 0) {
       setSelectedCourseId(safeData[0].id)
@@ -561,13 +616,17 @@ export default function ExpertPanel() {
   const sortedRuns = [...runs].sort((a, b) => b.id - a.id)
 
   const getThemeLabel = (themeId: number) => {
+    if (themeLabels[themeId]) {
+      return themeLabels[themeId]
+    }
+
     const theme = themes.find((item) => item.id === themeId)
 
     if (theme) {
       return theme.title
     }
 
-    return `ID ${themeId}`
+    return `тема №${themeId}`
   }
 
   return (
@@ -758,7 +817,7 @@ export default function ExpertPanel() {
                           <span>{getStatusLabel(exercise.status)}</span>
                         </div>
 
-                        <p>Тип: {exercise.exercise_type}</p>
+                        <p>Тип: {getExerciseTypeLabel(exercise.exercise_type)}</p>
 
                         {exercise.segments && exercise.segments.length > 0 && (
                           <div className="segments">
@@ -813,8 +872,8 @@ export default function ExpertPanel() {
             <div className="compactLog">
               {audit.slice(0, 10).map((item) => (
                 <div key={item.id}>
-                  <strong>{item.action}</strong>
-                  <span>{item.entity_type} #{item.entity_id}</span>
+                  <strong>{getActionLabel(item.action)}</strong>
+                  <span>{getEntityLabel(item.entity_type, item.entity_id)}</span>
                 </div>
               ))}
             </div>
