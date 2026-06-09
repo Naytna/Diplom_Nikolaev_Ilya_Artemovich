@@ -105,19 +105,22 @@ function getWordLabel(word: TranslatedWord) {
 }
 
 function getStatusLabel(status: string) {
-  if (status === 'completed') {
-    return 'завершено'
-  }
-
-  if (status === 'failed') {
-    return 'ошибка'
-  }
-
-  if (status === 'running') {
-    return 'выполняется'
-  }
+  if (status === 'completed') return 'завершено'
+  if (status === 'failed') return 'ошибка'
+  if (status === 'running') return 'выполняется'
+  if (status === 'draft') return 'черновик'
+  if (status === 'published') return 'опубликовано'
+  if (status === 'approved') return 'одобрено'
+  if (status === 'rejected') return 'отклонено'
 
   return status
+}
+
+function getModeLabel(mode: string) {
+  if (mode === 'textbook') return 'Учебник'
+  if (mode === 'workbook') return 'Рабочая тетрадь'
+
+  return mode
 }
 
 function formatDateTime(value: string) {
@@ -166,9 +169,9 @@ export default function ExpertPanel() {
     setCourses(safeData)
 
     if (!selectedCourseId && safeData.length > 0) {
-        setSelectedCourseId(safeData[0].id)
+      setSelectedCourseId(safeData[0].id)
     }
-    }
+  }
 
   async function loadThemes(courseId: number) {
     const data = await api<Theme[]>(`/courses/${courseId}/themes`)
@@ -177,36 +180,36 @@ export default function ExpertPanel() {
     setThemes(safeData)
 
     if (safeData.length > 0) {
-        setSelectedThemeId(safeData[0].id)
+      setSelectedThemeId(safeData[0].id)
     } else {
-        setSelectedThemeId(null)
-        setVocabulary([])
-        setExercises([])
+      setSelectedThemeId(null)
+      setVocabulary([])
+      setExercises([])
     }
-    }
+  }
 
   async function loadThemeData(themeId: number) {
     const [themeVocabulary, themeExercises] = await Promise.all([
-        api<VocabularyItem[]>(`/themes/${themeId}/translated-words`),
-        api<Exercise[]>(`/themes/${themeId}/exercises`),
+      api<VocabularyItem[]>(`/themes/${themeId}/translated-words`),
+      api<Exercise[]>(`/themes/${themeId}/exercises`),
     ])
 
     setVocabulary(themeVocabulary ?? [])
     setExercises((themeExercises ?? []).map((exercise) => ({
-        ...exercise,
-        segments: exercise.segments ?? [],
+      ...exercise,
+      segments: exercise.segments ?? [],
     })))
-    }
+  }
 
   async function loadLogs() {
     const [generationRuns, auditLogs] = await Promise.all([
-        api<GenerationRun[]>('/generation-runs'),
-        api<AuditLog[]>('/audit'),
+      api<GenerationRun[]>('/generation-runs'),
+      api<AuditLog[]>('/audit'),
     ])
 
     setRuns(generationRuns ?? [])
     setAudit(auditLogs ?? [])
-    }
+  }
 
   async function refreshAll() {
     setError('')
@@ -397,7 +400,7 @@ export default function ExpertPanel() {
 
     try {
       const data = await api<TranslatedWord[]>(`/translated-words?search=${encodeURIComponent(search)}`)
-      setSearchResults(data)
+      setSearchResults(data ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось выполнить поиск')
     } finally {
@@ -537,23 +540,23 @@ export default function ExpertPanel() {
 
   const selectedCourse = courses.find((course) => course.id === selectedCourseId)
   const selectedTheme = themes.find((theme) => theme.id === selectedThemeId)
-  
+
   const exerciseGroups = Object.values(
     exercises.reduce<Record<string, { phrase: string; items: Exercise[] }>>((acc, exercise) => {
-        const key = exercise.phrase.trim().toLowerCase()
+      const key = exercise.phrase.trim().toLowerCase()
 
-        if (!acc[key]) {
+      if (!acc[key]) {
         acc[key] = {
-            phrase: exercise.phrase,
-            items: [],
+          phrase: exercise.phrase,
+          items: [],
         }
-        }
+      }
 
-        acc[key].items.push(exercise)
+      acc[key].items.push(exercise)
 
-        return acc
+      return acc
     }, {}),
-    )
+  )
 
   const sortedRuns = [...runs].sort((a, b) => b.id - a.id)
 
@@ -561,238 +564,262 @@ export default function ExpertPanel() {
     const theme = themes.find((item) => item.id === themeId)
 
     if (theme) {
-        return theme.title
+      return theme.title
     }
 
     return `ID ${themeId}`
-    }
-  
+  }
+
   return (
-    <section className="expertLayout">
-      <div className="expertHeader">
+    <section className="expertPage">
+      <div className="expertToolbar">
         <div>
           <div className="eyebrow">Экспертная часть</div>
           <h2>Управление генерацией заданий</h2>
+          <p>
+            Курс: {selectedCourse ? selectedCourse.title : 'не выбран'} · Тема: {selectedTheme ? selectedTheme.title : 'не выбрана'}
+          </p>
         </div>
 
-        <button className="modeButton active" onClick={refreshAll}>
+        <button className="primaryButton" onClick={refreshAll}>
           Обновить
         </button>
       </div>
 
-      {loading && <div className="loadingBox">Выполняется запрос...</div>}
-      {message && <div className="successBox">{message}</div>}
-      {error && <div className="errorBox">{error}</div>}
+      {(loading || message || error) && (
+        <div className="expertNotifications">
+          {loading && <div className="loadingBox">Выполняется запрос...</div>}
+          {message && <div className="successBox">{message}</div>}
+          {error && <div className="errorBox">{error}</div>}
+        </div>
+      )}
 
-      <div className="expertGrid">
-        <section className="expertCard">
-          <h3>Курсы</h3>
+      <div className="expertWorkspace">
+        <aside className="expertSidebar">
+          <section className="expertCard">
+            <h3>Курсы</h3>
 
-          <form className="formBlock" onSubmit={createCourse}>
-            <input
-              value={courseTitle}
-              onChange={(event) => setCourseTitle(event.target.value)}
-              placeholder="Название курса"
-            />
-            <textarea
-              value={courseDescription}
-              onChange={(event) => setCourseDescription(event.target.value)}
-              placeholder="Описание курса"
-            />
-            <button type="submit">Создать курс</button>
-          </form>
+            <form className="formBlock" onSubmit={createCourse}>
+              <input
+                value={courseTitle}
+                onChange={(event) => setCourseTitle(event.target.value)}
+                placeholder="Название курса"
+              />
+              <textarea
+                value={courseDescription}
+                onChange={(event) => setCourseDescription(event.target.value)}
+                placeholder="Описание курса"
+              />
+              <button type="submit">Создать курс</button>
+            </form>
 
-          <div className="adminList">
-            {courses.map((course) => (
-              <button
-                key={course.id}
-                className={course.id === selectedCourseId ? 'adminItem active' : 'adminItem'}
-                onClick={() => setSelectedCourseId(course.id)}
-              >
-                <strong>{course.title}</strong>
-                <span>{course.status}</span>
+            <div className="adminList">
+              {courses.map((course) => (
+                <button
+                  key={course.id}
+                  className={course.id === selectedCourseId ? 'adminItem active' : 'adminItem'}
+                  onClick={() => setSelectedCourseId(course.id)}
+                >
+                  <strong>{course.title}</strong>
+                  <span>{getStatusLabel(course.status)}</span>
+                </button>
+              ))}
+            </div>
+
+            {selectedCourse && (
+              <button className="secondaryButton fullWidth" onClick={publishCourse}>
+                Опубликовать курс
               </button>
-            ))}
-          </div>
+            )}
+          </section>
 
-          {selectedCourse && (
-            <button className="secondaryButton" onClick={publishCourse}>
-              Опубликовать выбранный курс
-            </button>
-          )}
-        </section>
+          <section className="expertCard">
+            <h3>Темы курса</h3>
 
-        <section className="expertCard">
-          <h3>Темы курса</h3>
+            <form className="formBlock" onSubmit={createTheme}>
+              <input
+                value={themeTitle}
+                onChange={(event) => setThemeTitle(event.target.value)}
+                placeholder="Название темы"
+              />
+              <textarea
+                value={themeDescription}
+                onChange={(event) => setThemeDescription(event.target.value)}
+                placeholder="Описание темы"
+              />
+              <input
+                value={themeOrder}
+                onChange={(event) => setThemeOrder(event.target.value)}
+                placeholder="Порядок"
+              />
+              <button type="submit">Создать тему</button>
+            </form>
 
-          <form className="formBlock" onSubmit={createTheme}>
-            <input
-              value={themeTitle}
-              onChange={(event) => setThemeTitle(event.target.value)}
-              placeholder="Название темы"
-            />
-            <textarea
-              value={themeDescription}
-              onChange={(event) => setThemeDescription(event.target.value)}
-              placeholder="Описание темы"
-            />
-            <input
-              value={themeOrder}
-              onChange={(event) => setThemeOrder(event.target.value)}
-              placeholder="Порядок"
-            />
-            <button type="submit">Создать тему</button>
-          </form>
+            <div className="adminList">
+              {themes.map((theme) => (
+                <button
+                  key={theme.id}
+                  className={theme.id === selectedThemeId ? 'adminItem active' : 'adminItem'}
+                  onClick={() => setSelectedThemeId(theme.id)}
+                >
+                  <strong>{theme.title}</strong>
+                  <span>{getStatusLabel(theme.status)}</span>
+                </button>
+              ))}
+            </div>
 
-          <div className="adminList">
-            {themes.map((theme) => (
-              <button
-                key={theme.id}
-                className={theme.id === selectedThemeId ? 'adminItem active' : 'adminItem'}
-                onClick={() => setSelectedThemeId(theme.id)}
-              >
-                <strong>{theme.title}</strong>
-                <span>{theme.status}</span>
+            {selectedTheme && (
+              <button className="secondaryButton fullWidth" onClick={publishTheme}>
+                Опубликовать тему
               </button>
-            ))}
-          </div>
+            )}
+          </section>
+        </aside>
 
-          {selectedTheme && (
-            <button className="secondaryButton" onClick={publishTheme}>
-              Опубликовать выбранную тему
-            </button>
-          )}
-        </section>
+        <main className="expertMain">
+          <section className="expertCard">
+            <div className="expertSectionHeader">
+              <div>
+                <h3>Словарь выбранной темы</h3>
+                <p>{vocabulary.length} слов в теме</p>
+              </div>
+            </div>
 
-        <section className="expertCard wide">
-          <h3>Словарь выбранной темы</h3>
+            {!selectedTheme && <p className="muted">Выберите тему</p>}
 
-          {!selectedTheme && <p className="muted">Выберите тему</p>}
+            {selectedTheme && (
+              <>
+                <form className="searchBlock" onSubmit={searchWords}>
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Поиск слова, например: хлеб"
+                  />
+                  <button type="submit">Найти</button>
+                </form>
 
-          {selectedTheme && (
-            <>
-              <form className="searchBlock" onSubmit={searchWords}>
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Поиск слова, например: хлеб"
-                />
-                <button type="submit">Найти</button>
-              </form>
+                {searchResults.length > 0 && (
+                  <div className="searchResults">
+                    {searchResults.map((word) => (
+                      <button key={word.id} onClick={() => addWordToTheme(word.id)}>
+                        <strong>{getWordLabel(word)}</strong>
+                        <span>{word.gesture_name || 'жест'}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-              <div className="searchResults">
-                {searchResults.map((word) => (
-                  <button key={word.id} onClick={() => addWordToTheme(word.id)}>
-                    <strong>{getWordLabel(word)}</strong>
-                    <span>{word.gesture_name || 'жест'}</span>
-                  </button>
-                ))}
+                <div className="lexicon adminLexicon">
+                  {vocabulary.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => removeWordFromTheme(item.translated_word_id)}
+                      title="Удалить из темы"
+                    >
+                      {item.display_text || item.word_name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+
+          <section className="expertCard generationCard">
+            <div className="expertSectionHeader">
+              <div>
+                <h3>Генерация и проверка упражнений</h3>
+                <p>
+                  {selectedTheme ? `Тема: ${selectedTheme.title}` : 'Тема не выбрана'}
+                </p>
               </div>
 
-              <div className="lexicon adminLexicon">
-                {vocabulary.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => removeWordFromTheme(item.translated_word_id)}
-                    title="Удалить из темы"
-                  >
-                    {item.display_text || item.word_name}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
+              <button className="primaryButton" onClick={generateExercises} disabled={!selectedThemeId}>
+                Сгенерировать задания
+              </button>
+            </div>
 
-        <section className="expertCard wide">
-          <h3>Генерация и проверка упражнений</h3>
+            {exerciseGroups.length === 0 && (
+              <p className="muted">Для выбранной темы пока нет упражнений</p>
+            )}
 
-          <div className="actionRow">
-            <button className="mainAction" onClick={generateExercises} disabled={!selectedThemeId}>
-              Сгенерировать задания по теме
-            </button>
-            <span>
-              Тема: {selectedTheme ? selectedTheme.title : 'не выбрана'}
-            </span>
-          </div>
-
-          <div className="reviewList">
-            {exerciseGroups.map((group) => (
+            <div className="reviewList">
+              {exerciseGroups.map((group) => (
                 <article className="reviewCard" key={group.phrase}>
-                <div className="reviewTop">
+                  <div className="reviewTop">
                     <strong>{group.phrase}</strong>
                     <span>{group.items.length} режима</span>
-                </div>
+                  </div>
 
-                <div className="variantList">
+                  <div className="variantList">
                     {group.items.map((exercise) => (
-                    <div className="exerciseVariant" key={exercise.id}>
+                      <div className="exerciseVariant" key={exercise.id}>
                         <div className="variantTop">
-                        <strong>
-                            {exercise.target_mode === 'textbook' ? 'Учебник' : 'Рабочая тетрадь'}
-                        </strong>
-                        <span>{getStatusLabel(exercise.status)}</span>
+                          <strong>{getModeLabel(exercise.target_mode)}</strong>
+                          <span>{getStatusLabel(exercise.status)}</span>
                         </div>
 
                         <p>Тип: {exercise.exercise_type}</p>
 
                         {exercise.segments && exercise.segments.length > 0 && (
-                        <div className="segments">
+                          <div className="segments">
                             {exercise.segments.map((segment) => (
-                            <div className="segment" key={segment.id}>
+                              <div className="segment" key={segment.id}>
                                 <span>{segment.position_index}</span>
                                 <strong>{segment.gesture_name}</strong>
                                 <small>{segment.word_text}</small>
-                            </div>
+                              </div>
                             ))}
-                        </div>
+                          </div>
                         )}
 
                         <div className="reviewActions">
-                        <button onClick={() => approveExercise(exercise.id)}>
+                          <button onClick={() => approveExercise(exercise.id)}>
                             Одобрить
-                        </button>
-                        <button onClick={() => rejectExercise(exercise.id)}>
+                          </button>
+                          <button onClick={() => rejectExercise(exercise.id)}>
                             Отклонить
-                        </button>
+                          </button>
                         </div>
-                    </div>
+                      </div>
                     ))}
-                </div>
+                  </div>
                 </article>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        </main>
 
-        <section className="expertCard">
+        <aside className="expertAside">
+          <section className="expertCard">
             <h3>Журнал генераций</h3>
 
             <div className="compactLog">
-            {sortedRuns.slice(0, 8).map((run) => (
+              {sortedRuns.slice(0, 10).map((run) => (
                 <div key={run.id}>
-                    <strong>Запуск #{run.id}</strong>
-                    <span>Тема: {getThemeLabel(run.theme_id)}</span>
-                    <span>{formatDateTime(run.created_at)}</span>
-                    <span>
+                  <strong>Запуск #{run.id}</strong>
+                  <span>Тема: {getThemeLabel(run.theme_id)}</span>
+                  <span>{formatDateTime(run.created_at)}</span>
+                  <span>
                     {getStatusLabel(run.status)}: найдено {run.found_examples}, создано {run.generated_exercises}, отклонено {run.rejected_examples}
-                    </span>
+                  </span>
                 </div>
-                ))}
+              ))}
             </div>
-        </section>
+          </section>
 
-        <section className="expertCard">
-          <h3>Аудит действий</h3>
+          <section className="expertCard">
+            <h3>Аудит действий</h3>
 
-          <div className="compactLog">
-            {audit.slice(0, 8).map((item) => (
-              <div key={item.id}>
-                <strong>{item.action}</strong>
-                <span>{item.entity_type} #{item.entity_id}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+            <div className="compactLog">
+              {audit.slice(0, 10).map((item) => (
+                <div key={item.id}>
+                  <strong>{item.action}</strong>
+                  <span>{item.entity_type} #{item.entity_id}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </aside>
       </div>
     </section>
   )
