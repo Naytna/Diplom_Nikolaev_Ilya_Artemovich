@@ -75,6 +75,17 @@ type ThemeFull = {
 
 const API_URL = 'http://localhost:18080/api'
 
+function normalizeThemeFull(data: ThemeFull): ThemeFull {
+  return {
+    ...data,
+    vocabulary: data.vocabulary ?? [],
+    exercises: (data.exercises ?? []).map((exercise) => ({
+      ...exercise,
+      segments: exercise.segments ?? [],
+    })),
+  }
+}
+
 function App() {
   const [section, setSection] = useState<'public' | 'expert'>('public')
   const [courses, setCourses] = useState<Course[]>([])
@@ -157,7 +168,7 @@ function App() {
         return response.json()
       })
       .then((data: ThemeFull) => {
-        setThemeFull(data)
+        setThemeFull(normalizeThemeFull(data))
       })
       .catch((err: Error) => {
         setError(err.message)

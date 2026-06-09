@@ -20,7 +20,9 @@ insert into linguistic.words (id, name, normalized_name) values
 (7, 'мать', 'мать'),
 (8, 'отец', 'отец'),
 (9, 'абажур', 'абажур'),
-(10, 'окно', 'окно');
+(10, 'окно', 'окно'),
+(11, 'жить', 'жить'),
+(12, 'мой', 'мой');
 
 insert into linguistic.concepts (id, name, description) values
 (1, 'пищевой продукт из муки', 'Понятие хлеба как еды'),
@@ -32,7 +34,9 @@ insert into linguistic.concepts (id, name, description) values
 (7, 'мать как родственник', 'Понятие матери'),
 (8, 'отец как родственник', 'Понятие отца'),
 (9, 'колпак для светильника', 'Понятие абажура как части светильника'),
-(10, 'проём для света', 'Понятие окна');
+(10, 'проём для света', 'Понятие окна'),
+(11, 'проживание', 'действие проживания, нахождения дома или в определённом месте'),
+(12, 'принадлежность первому лицу', 'указание на принадлежность говорящему: мой, моя, моё');
 
 insert into linguistic.gestures (id, concept_id, name, video_url, description) values
 (1, 1, 'ХЛЕБ', '/videos/bread.mp4', 'Жест для хлеба'),
@@ -44,7 +48,9 @@ insert into linguistic.gestures (id, concept_id, name, video_url, description) v
 (7, 7, 'МАМА', '/videos/mother.mp4', 'Жест для матери'),
 (8, 8, 'ПАПА', '/videos/father.mp4', 'Жест для отца'),
 (9, 9, 'АБАЖУР', '/videos/lamp-shade.mp4', 'Жест для абажура'),
-(10, 10, 'ОКНО', '/videos/window.mp4', 'Жест для окна');
+(10, 10, 'ОКНО', '/videos/window.mp4', 'Жест для окна'),
+(11, 11, 'ЖИТЬ', '/videos/live.mp4', 'Жест для значения проживания'),
+(12, 12, 'МОЙ', '/videos/my.mp4', 'Жест для значения принадлежности говорящему');
 
 insert into linguistic.translated_words (id, word_id, concept_id, gesture_id, display_text) values
 (1, 1, 1, 1, 'хлеб'),
@@ -57,7 +63,9 @@ insert into linguistic.translated_words (id, word_id, concept_id, gesture_id, di
 (8, 8, 8, 8, 'отец'),
 (9, 9, 9, 9, 'абажур'),
 (10, 9, 10, 10, 'абажур'),
-(11, 10, 10, 10, 'окно');
+(11, 10, 10, 10, 'окно'),
+(12, 11, 11, 11, 'жить'),
+(13, 12, 12, 12, 'мой/моя/моё');
 
 insert into learning.courses (id, title, description, status, created_by) values
 (1, 'Базовый курс РЖЯ', 'Учебный курс для демонстрации генерации заданий', 'draft', 2);
@@ -73,7 +81,10 @@ insert into learning.theme_translated_words (theme_id, translated_word_id, diffi
 (1, 4, 1, true),
 (2, 6, 1, true),
 (2, 7, 1, true),
-(2, 8, 1, true);
+(2, 8, 1, true),
+(2, 5, 1, true),
+(2, 12, 1, true),
+(2, 13, 1, true);
 
 insert into linguistic.lit_examples (id, text, source, status) values
 (1, 'Я покупаю хлеб в магазине', 'Тестовый корпус', 'verified'),
@@ -97,8 +108,10 @@ insert into linguistic.lit_example_segments (lit_example_id, translated_word_id,
 (3, 3, 'магазине', 1),
 (3, 1, 'хлеб', 2),
 (3, 2, 'молоко', 3),
-(4, 6, 'семья', 1),
-(4, 5, 'дома', 2),
+(4, 13, 'Моя', 1),
+(4, 6, 'семья', 2),
+(4, 12, 'живёт', 3),
+(4, 5, 'дома', 4),
 (5, 7, 'Мать', 1),
 (5, 8, 'отец', 2),
 (5, 5, 'дома', 3),
@@ -111,6 +124,12 @@ insert into linguistic.lit_example_segments (lit_example_id, translated_word_id,
 (10, 1, 'хлеб', 2),
 (10, 3, 'магазине', 3);
 
+select setval('linguistic.words_id_seq', (select coalesce(max(id), 0) + 1 from linguistic.words), false);
+select setval('linguistic.concepts_id_seq', (select coalesce(max(id), 0) + 1 from linguistic.concepts), false);
+select setval('linguistic.gestures_id_seq', (select coalesce(max(id), 0) + 1 from linguistic.gestures), false);
+select setval('linguistic.translated_words_id_seq', (select coalesce(max(id), 0) + 1 from linguistic.translated_words), false);
+select setval('linguistic.lit_examples_id_seq', (select coalesce(max(id), 0) + 1 from linguistic.lit_examples), false);
+select setval('linguistic.lit_example_segments_id_seq', (select coalesce(max(id), 0) + 1 from linguistic.lit_example_segments), false);
 select setval('learning.roles_id_seq', (select coalesce(max(id), 0) + 1 from learning.roles), false);
 select setval('learning.users_id_seq', (select coalesce(max(id), 0) + 1 from learning.users), false);
 select setval('learning.courses_id_seq', (select coalesce(max(id), 0) + 1 from learning.courses), false);

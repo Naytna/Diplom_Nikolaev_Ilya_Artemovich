@@ -20,6 +20,17 @@ func main() {
 
 	app := fiber.New()
 
+	app.Use(func(c *fiber.Ctx) error {
+		err := c.Next()
+
+		contentType := string(c.Response().Header.ContentType())
+		if contentType == "" || contentType == fiber.MIMEApplicationJSON {
+			c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+		}
+
+		return err
+	})
+
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "http://localhost:5173",
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",

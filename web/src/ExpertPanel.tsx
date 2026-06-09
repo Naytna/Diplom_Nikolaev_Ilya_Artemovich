@@ -161,45 +161,52 @@ export default function ExpertPanel() {
 
   async function loadCourses() {
     const data = await api<Course[]>('/courses')
-    setCourses(data)
+    const safeData = data ?? []
 
-    if (!selectedCourseId && data.length > 0) {
-      setSelectedCourseId(data[0].id)
+    setCourses(safeData)
+
+    if (!selectedCourseId && safeData.length > 0) {
+        setSelectedCourseId(safeData[0].id)
     }
-  }
+    }
 
   async function loadThemes(courseId: number) {
     const data = await api<Theme[]>(`/courses/${courseId}/themes`)
-    setThemes(data)
+    const safeData = data ?? []
 
-    if (data.length > 0) {
-      setSelectedThemeId(data[0].id)
+    setThemes(safeData)
+
+    if (safeData.length > 0) {
+        setSelectedThemeId(safeData[0].id)
     } else {
-      setSelectedThemeId(null)
-      setVocabulary([])
-      setExercises([])
+        setSelectedThemeId(null)
+        setVocabulary([])
+        setExercises([])
     }
-  }
+    }
 
   async function loadThemeData(themeId: number) {
     const [themeVocabulary, themeExercises] = await Promise.all([
-      api<VocabularyItem[]>(`/themes/${themeId}/translated-words`),
-      api<Exercise[]>(`/themes/${themeId}/exercises`),
+        api<VocabularyItem[]>(`/themes/${themeId}/translated-words`),
+        api<Exercise[]>(`/themes/${themeId}/exercises`),
     ])
 
-    setVocabulary(themeVocabulary)
-    setExercises(themeExercises)
-  }
+    setVocabulary(themeVocabulary ?? [])
+    setExercises((themeExercises ?? []).map((exercise) => ({
+        ...exercise,
+        segments: exercise.segments ?? [],
+    })))
+    }
 
   async function loadLogs() {
     const [generationRuns, auditLogs] = await Promise.all([
-      api<GenerationRun[]>('/generation-runs'),
-      api<AuditLog[]>('/audit'),
+        api<GenerationRun[]>('/generation-runs'),
+        api<AuditLog[]>('/audit'),
     ])
 
-    setRuns(generationRuns)
-    setAudit(auditLogs)
-  }
+    setRuns(generationRuns ?? [])
+    setAudit(auditLogs ?? [])
+    }
 
   async function refreshAll() {
     setError('')
@@ -531,6 +538,23 @@ export default function ExpertPanel() {
   const selectedCourse = courses.find((course) => course.id === selectedCourseId)
   const selectedTheme = themes.find((theme) => theme.id === selectedThemeId)
   
+  const exerciseGroups = Object.values(
+    exercises.reduce<Record<string, { phrase: string; items: Exercise[] }>>((acc, exercise) => {
+        const key = exercise.phrase.trim().toLowerCase()
+
+        if (!acc[key]) {
+        acc[key] = {
+            phrase: exercise.phrase,
+            items: [],
+        }
+        }
+
+        acc[key].items.push(exercise)
+
+        return acc
+    }, {}),
+    )
+
   const sortedRuns = [...runs].sort((a, b) => b.id - a.id)
 
   const getThemeLabel = (themeId: number) => {
@@ -693,38 +717,49 @@ export default function ExpertPanel() {
           </div>
 
           <div className="reviewList">
-            {exercises.map((exercise) => (
-              <article className="reviewCard" key={exercise.id}>
+            {exerciseGroups.map((group) => (
+                <article className="reviewCard" key={group.phrase}>
                 <div className="reviewTop">
-                  <strong>{exercise.phrase}</strong>
-                  <span>{exercise.status}</span>
+                    <strong>{group.phrase}</strong>
+                    <span>{group.items.length} режима</span>
                 </div>
 
-                <p>
-                  Режим: {exercise.target_mode}, тип: {exercise.exercise_type}
-                </p>
+                <div className="variantList">
+                    {group.items.map((exercise) => (
+                    <div className="exerciseVariant" key={exercise.id}>
+                        <div className="variantTop">
+                        <strong>
+                            {exercise.target_mode === 'textbook' ? 'Учебник' : 'Рабочая тетрадь'}
+                        </strong>
+                        <span>{getStatusLabel(exercise.status)}</span>
+                        </div>
 
-                {exercise.segments && exercise.segments.length > 0 && (
-                  <div className="segments">
-                    {exercise.segments.map((segment) => (
-                      <div className="segment" key={segment.id}>
-                        <span>{segment.position_index}</span>
-                        <strong>{segment.gesture_name}</strong>
-                        <small>{segment.word_text}</small>
-                      </div>
+                        <p>Тип: {exercise.exercise_type}</p>
+
+                        {exercise.segments && exercise.segments.length > 0 && (
+                        <div className="segments">
+                            {exercise.segments.map((segment) => (
+                            <div className="segment" key={segment.id}>
+                                <span>{segment.position_index}</span>
+                                <strong>{segment.gesture_name}</strong>
+                                <small>{segment.word_text}</small>
+                            </div>
+                            ))}
+                        </div>
+                        )}
+
+                        <div className="reviewActions">
+                        <button onClick={() => approveExercise(exercise.id)}>
+                            Одобрить
+                        </button>
+                        <button onClick={() => rejectExercise(exercise.id)}>
+                            Отклонить
+                        </button>
+                        </div>
+                    </div>
                     ))}
-                  </div>
-                )}
-
-                <div className="reviewActions">
-                  <button onClick={() => approveExercise(exercise.id)}>
-                    Одобрить
-                  </button>
-                  <button onClick={() => rejectExercise(exercise.id)}>
-                    Отклонить
-                  </button>
                 </div>
-              </article>
+                </article>
             ))}
           </div>
         </section>
