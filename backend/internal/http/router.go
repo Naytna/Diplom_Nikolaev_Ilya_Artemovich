@@ -504,6 +504,24 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB) {
 		return c.JSON(rows)
 	})
 
+	app.Get("/api/generation-runs/:id/rejections", func(c *fiber.Ctx) error {
+		runID, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id запуска генерации")
+		}
+
+		var rows []models.GenerationRejection
+		err = db.
+			Where("generation_run_id = ?", runID).
+			Order("id").
+			Find(&rows).Error
+		if err != nil {
+			return errorJSON(c, 500, err.Error())
+		}
+
+		return c.JSON(rows)
+	})
+
 	app.Get("/api/audit", func(c *fiber.Ctx) error {
 		var rows []map[string]any
 		err := db.Table("learning.audit_logs a").
