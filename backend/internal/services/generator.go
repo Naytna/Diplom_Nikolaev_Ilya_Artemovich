@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -13,6 +14,7 @@ type GenerationService struct {
 }
 
 type GenerationResult struct {
+	RunID              int64  `json:"run_id"`
 	ThemeID            int64  `json:"theme_id"`
 	FoundExamples      int    `json:"found_examples"`
 	GeneratedExercises int    `json:"generated_exercises"`
@@ -36,6 +38,14 @@ type sourceSegment struct {
 	PositionIndex    int
 }
 
+type generationRejection struct {
+	ThemeID      int64
+	LitExampleID int64
+	ExampleText  string
+	ReasonCode   string
+	ReasonText   string
+}
+
 func NewGenerationService(db *gorm.DB) *GenerationService {
 	return &GenerationService{db: db}
 }
@@ -43,21 +53,22 @@ func NewGenerationService(db *gorm.DB) *GenerationService {
 func (s *GenerationService) Generate(themeID int64, userID int64) (GenerationResult, error) {
 	startedAt := time.Now()
 	result := GenerationResult{ThemeID: themeID, Status: "failed"}
+	rejections := make([]generationRejection, 0)
 
 	themeWords, err := s.loadThemeTranslatedWords(themeID)
 	if err != nil {
-		s.saveRun(themeID, userID, result, err.Error(), startedAt)
+		_, _ = s.saveRun(themeID, userID, result, err.Error(), startedAt)
 		return result, err
 	}
 	if len(themeWords) < 3 {
 		err = errors.New("для генерации нужно минимум 3 переводных слова в теме")
-		s.saveRun(themeID, userID, result, err.Error(), startedAt)
+		_, _ = s.saveRun(themeID, userID, result, err.Error(), startedAt)
 		return result, err
 	}
 
 	candidates, err := s.findCandidateExamples(themeWords)
 	if err != nil {
-		s.saveRun(themeID, userID, result, err.Error(), startedAt)
+		_, _ = s.saveRun(themeID, userID, result, err.Error(), startedAt)
 		return result, err
 	}
 	result.FoundExamples = len(candidates)
@@ -73,18 +84,36 @@ func (s *GenerationService) Generate(themeID int64, userID int64) (GenerationRes
 			if err != nil {
 				return err
 			}
-			if !s.exampleAllowed(segments, themeSet) {
+
+			allowed, reasonCode, reasonText := s.validateExample(segments, themeSet)
+			if !allowed {
 				result.RejectedExamples++
+				rejections = append(rejections, generationRejection{
+					ThemeID:      themeID,
+					LitExampleID: example.ID,
+					ExampleText:  example.Text,
+					ReasonCode:   reasonCode,
+					ReasonText:   reasonText,
+				})
 				continue
 			}
+
 			used, err := s.exampleAlreadyUsed(tx, themeID, example.ID)
 			if err != nil {
 				return err
 			}
 			if used {
 				result.RejectedExamples++
+				rejections = append(rejections, generationRejection{
+					ThemeID:      themeID,
+					LitExampleID: example.ID,
+					ExampleText:  example.Text,
+					ReasonCode:   "already_used",
+					ReasonText:   "Пример уже использовался для генерации упражнений в выбранной теме",
+				})
 				continue
 			}
+
 			created, err := s.createExercisePair(tx, themeID, example, segments)
 			if err != nil {
 				return err
@@ -94,13 +123,25 @@ func (s *GenerationService) Generate(themeID int64, userID int64) (GenerationRes
 		return nil
 	})
 	if err != nil {
-		s.saveRun(themeID, userID, result, err.Error(), startedAt)
+		_, _ = s.saveRun(themeID, userID, result, err.Error(), startedAt)
 		return result, err
 	}
 
 	result.DurationMS = time.Since(startedAt).Milliseconds()
 	result.Status = "completed"
-	s.saveRun(themeID, userID, result, "", startedAt)
+
+	runID, err := s.saveRun(themeID, userID, result, "", startedAt)
+	if err != nil {
+		return result, err
+	}
+	result.RunID = runID
+
+	if len(rejections) > 0 {
+		if err := s.saveRejections(runID, rejections); err != nil {
+			return result, err
+		}
+	}
+
 	return result, nil
 }
 
@@ -145,16 +186,29 @@ func (s *GenerationService) loadExampleSegments(tx *gorm.DB, exampleID int64) ([
 	return segments, err
 }
 
-func (s *GenerationService) exampleAllowed(segments []sourceSegment, themeSet map[int64]bool) bool {
+func (s *GenerationService) validateExample(segments []sourceSegment, themeSet map[int64]bool) (bool, string, string) {
 	if len(segments) < 2 {
-		return false
+		return false, "not_enough_segments", "В примере меньше двух жестовых сегментов, поэтому из него нельзя сформировать полноценное упражнение"
 	}
+
+	outsideWords := make([]string, 0)
 	for _, segment := range segments {
 		if !themeSet[segment.TranslatedWordID] {
-			return false
+			label := segment.WordText
+			if label == "" {
+				label = segment.GestureName
+			}
+			outsideWords = append(outsideWords, label)
 		}
 	}
-	return true
+
+	if len(outsideWords) > 0 {
+		return false,
+			"outside_theme_vocabulary",
+			fmt.Sprintf("Пример содержит слова вне словаря выбранной темы: %s", strings.Join(outsideWords, ", "))
+	}
+
+	return true, "", ""
 }
 
 func (s *GenerationService) exampleAlreadyUsed(tx *gorm.DB, themeID int64, exampleID int64) (bool, error) {
@@ -187,6 +241,7 @@ func (s *GenerationService) createExercisePair(tx *gorm.DB, themeID int64, examp
 		if err != nil {
 			return created, err
 		}
+
 		for _, segment := range segments {
 			err = tx.Exec(`
 				insert into learning.exercise_segments
@@ -197,6 +252,7 @@ func (s *GenerationService) createExercisePair(tx *gorm.DB, themeID int64, examp
 				return created, err
 			}
 		}
+
 		created++
 	}
 
@@ -214,11 +270,33 @@ func (s *GenerationService) buildExplanation(segments []sourceSegment) string {
 	return value
 }
 
-func (s *GenerationService) saveRun(themeID int64, userID int64, result GenerationResult, message string, startedAt time.Time) {
+func (s *GenerationService) saveRun(themeID int64, userID int64, result GenerationResult, message string, startedAt time.Time) (int64, error) {
 	duration := time.Since(startedAt).Milliseconds()
-	s.db.Exec(`
+	var runID int64
+
+	err := s.db.Raw(`
 		insert into learning.generation_runs
 		(theme_id, started_by, status, found_examples, generated_exercises, rejected_examples, duration_ms, error_message)
 		values (?, ?, ?, ?, ?, ?, ?, ?)
-	`, themeID, userID, result.Status, result.FoundExamples, result.GeneratedExercises, result.RejectedExamples, duration, message)
+		returning id
+	`, themeID, userID, result.Status, result.FoundExamples, result.GeneratedExercises, result.RejectedExamples, duration, message).Scan(&runID).Error
+
+	return runID, err
+}
+
+func (s *GenerationService) saveRejections(runID int64, rejections []generationRejection) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		for _, rejection := range rejections {
+			err := tx.Exec(`
+				insert into learning.generation_rejections
+				(generation_run_id, theme_id, lit_example_id, example_text, reason_code, reason_text)
+				values (?, ?, ?, ?, ?, ?)
+			`, runID, rejection.ThemeID, rejection.LitExampleID, rejection.ExampleText, rejection.ReasonCode, rejection.ReasonText).Error
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }

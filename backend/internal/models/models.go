@@ -35,3 +35,18 @@ type ExerciseSegment struct {
 func (ExerciseSegment) TableName() string {
 	return "learning.exercise_segments"
 }
+
+type GenerationRejection struct {
+	ID              int64     `json:"id"`
+	GenerationRunID int64    `json:"generation_run_id"`
+	ThemeID         int64    `json:"theme_id"`
+	LitExampleID    int64    `json:"lit_example_id"`
+	ExampleText     string   `json:"example_text"`
+	ReasonCode      string   `json:"reason_code"`
+	ReasonText      string   `json:"reason_text"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
+func (GenerationRejection) TableName() string {
+	return "learning.generation_rejections"
+}
