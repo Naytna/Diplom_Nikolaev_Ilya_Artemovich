@@ -77,6 +77,7 @@ type AuditLog = {
 }
 
 const API_URL = 'http://localhost:18080/api'
+type ExpertTab = 'courses' | 'themes' | 'vocabulary' | 'generation' | 'logs'
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -173,6 +174,7 @@ function formatDateTime(value: string) {
 }
 
 export default function ExpertPanel() {
+  const [activeTab, setActiveTab] = useState<ExpertTab>('courses')
   const [courses, setCourses] = useState<Course[]>([])
   const [themes, setThemes] = useState<Theme[]>([])
   const [themeLabels, setThemeLabels] = useState<Record<number, string>>({})
@@ -645,6 +647,39 @@ export default function ExpertPanel() {
         </button>
       </div>
 
+      <nav className="expertTabs">
+        <button
+          className={activeTab === 'courses' ? 'expertTab active' : 'expertTab'}
+          onClick={() => setActiveTab('courses')}
+        >
+          Курсы
+        </button>
+        <button
+          className={activeTab === 'themes' ? 'expertTab active' : 'expertTab'}
+          onClick={() => setActiveTab('themes')}
+        >
+          Темы
+        </button>
+        <button
+          className={activeTab === 'vocabulary' ? 'expertTab active' : 'expertTab'}
+          onClick={() => setActiveTab('vocabulary')}
+        >
+          Словарь
+        </button>
+        <button
+          className={activeTab === 'generation' ? 'expertTab active' : 'expertTab'}
+          onClick={() => setActiveTab('generation')}
+        >
+          Генерация
+        </button>
+        <button
+          className={activeTab === 'logs' ? 'expertTab active' : 'expertTab'}
+          onClick={() => setActiveTab('logs')}
+        >
+          Журнал
+        </button>
+      </nav>
+
       {(loading || message || error) && (
         <div className="expertNotifications">
           {loading && <div className="loadingBox">Выполняется запрос...</div>}
@@ -653,98 +688,126 @@ export default function ExpertPanel() {
         </div>
       )}
 
-      <div className="expertWorkspace">
-        <aside className="expertSidebar">
-          <section className="expertCard">
-            <h3>Курсы</h3>
-
-            <form className="formBlock" onSubmit={createCourse}>
-              <input
-                value={courseTitle}
-                onChange={(event) => setCourseTitle(event.target.value)}
-                placeholder="Название курса"
-              />
-              <textarea
-                value={courseDescription}
-                onChange={(event) => setCourseDescription(event.target.value)}
-                placeholder="Описание курса"
-              />
-              <button type="submit">Создать курс</button>
-            </form>
-
-            <div className="adminList">
-              {courses.map((course) => (
-                <button
-                  key={course.id}
-                  className={course.id === selectedCourseId ? 'adminItem active' : 'adminItem'}
-                  onClick={() => setSelectedCourseId(course.id)}
-                >
-                  <strong>{course.title}</strong>
-                  <span>{getStatusLabel(course.status)}</span>
-                </button>
-              ))}
-            </div>
-
-            {selectedCourse && (
-              <button className="secondaryButton fullWidth" onClick={publishCourse}>
-                Опубликовать курс
-              </button>
-            )}
-          </section>
-
-          <section className="expertCard">
-            <h3>Темы курса</h3>
-
-            <form className="formBlock" onSubmit={createTheme}>
-              <input
-                value={themeTitle}
-                onChange={(event) => setThemeTitle(event.target.value)}
-                placeholder="Название темы"
-              />
-              <textarea
-                value={themeDescription}
-                onChange={(event) => setThemeDescription(event.target.value)}
-                placeholder="Описание темы"
-              />
-              <input
-                value={themeOrder}
-                onChange={(event) => setThemeOrder(event.target.value)}
-                placeholder="Порядок"
-              />
-              <button type="submit">Создать тему</button>
-            </form>
-
-            <div className="adminList">
-              {themes.map((theme) => (
-                <button
-                  key={theme.id}
-                  className={theme.id === selectedThemeId ? 'adminItem active' : 'adminItem'}
-                  onClick={() => setSelectedThemeId(theme.id)}
-                >
-                  <strong>{theme.title}</strong>
-                  <span>{getStatusLabel(theme.status)}</span>
-                </button>
-              ))}
-            </div>
-
-            {selectedTheme && (
-              <button className="secondaryButton fullWidth" onClick={publishTheme}>
-                Опубликовать тему
-              </button>
-            )}
-          </section>
-        </aside>
-
-        <main className="expertMain">
-          <section className="expertCard">
-            <div className="expertSectionHeader">
+      <div className="expertScreen">
+        {activeTab === 'courses' && (
+          <section className="expertCard expertSingleScreen">
+            <div className="screenHeader">
               <div>
-                <h3>Словарь выбранной темы</h3>
-                <p>{vocabulary.length} слов в теме</p>
+                <h3>Курсы</h3>
+                <p>Создание, выбор и публикация учебных курсов</p>
               </div>
             </div>
 
-            {!selectedTheme && <p className="muted">Выберите тему</p>}
+            <div className="screenGrid">
+              <form className="formBlock" onSubmit={createCourse}>
+                <input
+                  value={courseTitle}
+                  onChange={(event) => setCourseTitle(event.target.value)}
+                  placeholder="Название курса"
+                />
+                <textarea
+                  value={courseDescription}
+                  onChange={(event) => setCourseDescription(event.target.value)}
+                  placeholder="Описание курса"
+                />
+                <button type="submit">Создать курс</button>
+              </form>
+
+              <div>
+                <div className="adminList">
+                  {courses.map((course) => (
+                    <button
+                      key={course.id}
+                      className={course.id === selectedCourseId ? 'adminItem active' : 'adminItem'}
+                      onClick={() => {
+                        setSelectedCourseId(course.id)
+                        setActiveTab('themes')
+                      }}
+                    >
+                      <strong>{course.title}</strong>
+                      <span>{getStatusLabel(course.status)}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {selectedCourse && (
+                  <button className="secondaryButton fullWidth" onClick={publishCourse}>
+                    Опубликовать выбранный курс
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'themes' && (
+          <section className="expertCard expertSingleScreen">
+            <div className="screenHeader">
+              <div>
+                <h3>Темы курса</h3>
+                <p>{selectedCourse ? `Курс: ${selectedCourse.title}` : 'Сначала выберите курс'}</p>
+              </div>
+            </div>
+
+            <div className="screenGrid">
+              <form className="formBlock" onSubmit={createTheme}>
+                <input
+                  value={themeTitle}
+                  onChange={(event) => setThemeTitle(event.target.value)}
+                  placeholder="Название темы"
+                />
+                <textarea
+                  value={themeDescription}
+                  onChange={(event) => setThemeDescription(event.target.value)}
+                  placeholder="Описание темы"
+                />
+                <input
+                  value={themeOrder}
+                  onChange={(event) => setThemeOrder(event.target.value)}
+                  placeholder="Порядок"
+                />
+                <button type="submit">Создать тему</button>
+              </form>
+
+              <div>
+                <div className="adminList">
+                  {themes.map((theme) => (
+                    <button
+                      key={theme.id}
+                      className={theme.id === selectedThemeId ? 'adminItem active' : 'adminItem'}
+                      onClick={() => {
+                        setSelectedThemeId(theme.id)
+                        setActiveTab('vocabulary')
+                      }}
+                    >
+                      <strong>{theme.title}</strong>
+                      <span>{getStatusLabel(theme.status)}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {selectedTheme && (
+                  <button className="secondaryButton fullWidth" onClick={publishTheme}>
+                    Опубликовать выбранную тему
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'vocabulary' && (
+          <section className="expertCard expertSingleScreen">
+            <div className="screenHeader">
+              <div>
+                <h3>Словарь выбранной темы</h3>
+                <p>
+                  {selectedTheme ? `Тема: ${selectedTheme.title} · ${vocabulary.length} слов` : 'Сначала выберите тему'}
+                </p>
+              </div>
+            </div>
+
+            {!selectedTheme && <p className="muted">Выберите тему в разделе “Темы”.</p>}
 
             {selectedTheme && (
               <>
@@ -782,13 +845,15 @@ export default function ExpertPanel() {
               </>
             )}
           </section>
+        )}
 
-          <section className="expertCard generationCard">
-            <div className="expertSectionHeader">
+        {activeTab === 'generation' && (
+          <section className="expertCard expertSingleScreen generationCard">
+            <div className="screenHeader">
               <div>
                 <h3>Генерация и проверка упражнений</h3>
                 <p>
-                  {selectedTheme ? `Тема: ${selectedTheme.title}` : 'Тема не выбрана'}
+                  {selectedTheme ? `Тема: ${selectedTheme.title}` : 'Сначала выберите тему'}
                 </p>
               </div>
 
@@ -846,39 +911,41 @@ export default function ExpertPanel() {
               ))}
             </div>
           </section>
-        </main>
+        )}
 
-        <aside className="expertAside">
-          <section className="expertCard">
-            <h3>Журнал генераций</h3>
+        {activeTab === 'logs' && (
+          <div className="logsScreen">
+            <section className="expertCard">
+              <h3>Журнал генераций</h3>
 
-            <div className="compactLog">
-              {sortedRuns.slice(0, 10).map((run) => (
-                <div key={run.id}>
-                  <strong>Запуск #{run.id}</strong>
-                  <span>Тема: {getThemeLabel(run.theme_id)}</span>
-                  <span>{formatDateTime(run.created_at)}</span>
-                  <span>
-                    {getStatusLabel(run.status)}: найдено {run.found_examples}, создано {run.generated_exercises}, отклонено {run.rejected_examples}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
+              <div className="compactLog">
+                {sortedRuns.slice(0, 10).map((run) => (
+                  <div key={run.id}>
+                    <strong>Запуск #{run.id}</strong>
+                    <span>Тема: {getThemeLabel(run.theme_id)}</span>
+                    <span>{formatDateTime(run.created_at)}</span>
+                    <span>
+                      {getStatusLabel(run.status)}: найдено {run.found_examples}, создано {run.generated_exercises}, отклонено {run.rejected_examples}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
 
-          <section className="expertCard">
-            <h3>Аудит действий</h3>
+            <section className="expertCard">
+              <h3>История действий эксперта</h3>
 
-            <div className="compactLog">
-              {audit.slice(0, 10).map((item) => (
-                <div key={item.id}>
-                  <strong>{getActionLabel(item.action)}</strong>
-                  <span>{getEntityLabel(item.entity_type, item.entity_id)}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        </aside>
+              <div className="compactLog">
+                {audit.slice(0, 10).map((item) => (
+                  <div key={item.id}>
+                    <strong>{getActionLabel(item.action)}</strong>
+                    <span>{getEntityLabel(item.entity_type, item.entity_id)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
       </div>
     </section>
   )
