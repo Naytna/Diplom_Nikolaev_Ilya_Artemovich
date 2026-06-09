@@ -804,3 +804,62 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
+
+.rejectionBlock {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #080808;
+  border: 1px solid #3a3a3a;
+}
+
+.rejectionHeader {
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.rejectionHeader h4 {
+  margin: 0 0 6px;
+  color: #ffffff;
+  font-size: 20px;
+}
+
+.rejectionHeader p {
+  color: #baffff;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.rejectionHeader span {
+  min-width: 42px;
+  padding: 7px 10px;
+  background: #3796d8;
+  color: #ffffff;
+  text-align: center;
+  font-weight: 700;
+}
+
+.rejectionList {
+  display: grid;
+  gap: 10px;
+}
+
+.rejectionItem {
+  padding: 13px 15px;
+  background: #000000;
+  border: 1px solid #303030;
+}
+
+.rejectionItem strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #ffffff;
+}
+
+.rejectionItem p {
+  color: #baffff;
+  font-size: 14px;
+  line-height: 1.4;
+}

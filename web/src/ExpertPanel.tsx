@@ -59,11 +59,25 @@ type Exercise = {
 
 type GenerationRun = {
   id: number
+  run_id?: number
   theme_id: number
-  status: string
   found_examples: number
   generated_exercises: number
   rejected_examples: number
+  duration_ms: number
+  status: string
+  error_message?: string
+  created_at?: string
+}
+
+type GenerationRejection = {
+  id: number
+  generation_run_id: number
+  theme_id: number
+  lit_example_id: number
+  example_text: string
+  reason_code: string
+  reason_text: string
   created_at: string
 }
 
@@ -156,7 +170,7 @@ function getEntityLabel(entityType: string, entityId: number) {
   return `${entityType} №${entityId}`
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value?: string) {
   if (!value) {
     return 'дата не указана'
   }
@@ -184,6 +198,7 @@ export default function ExpertPanel() {
   const [runs, setRuns] = useState<GenerationRun[]>([])
   const [audit, setAudit] = useState<AuditLog[]>([])
   const [lastGenerationResult, setLastGenerationResult] = useState<GenerationRun | null>(null)
+  const [generationRejections, setGenerationRejections] = useState<GenerationRejection[]>([])
 
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
   const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null)
@@ -259,6 +274,16 @@ export default function ExpertPanel() {
     })))
   }
 
+  const loadGenerationRejections = async (runId: number) => {
+    if (!runId) {
+      setGenerationRejections([])
+      return
+    }
+
+    const data = await api<GenerationRejection[]>(`/generation-runs/${runId}/rejections`)
+    setGenerationRejections(Array.isArray(data) ? data : [])
+  }
+
   async function loadLogs() {
     const [generationRuns, auditLogs] = await Promise.all([
       api<GenerationRun[]>('/generation-runs'),
@@ -287,6 +312,11 @@ export default function ExpertPanel() {
   useEffect(() => {
     void refreshAll()
   }, [])
+
+  useEffect(() => {
+    setLastGenerationResult(null)
+    setGenerationRejections([])
+  }, [selectedThemeId])
 
   useEffect(() => {
     if (!selectedCourseId) {
@@ -535,6 +565,14 @@ export default function ExpertPanel() {
       await loadLogs()
 
       setLastGenerationResult(result)
+
+      const runId = result.run_id || result.id
+
+      if (runId) {
+        await loadGenerationRejections(runId)
+      } else {
+        setGenerationRejections([])
+      }
 
       setMessage(
         `Генерация завершена: найдено ${result.found_examples}, создано ${result.generated_exercises}, отклонено ${result.rejected_examples}`,
@@ -884,6 +922,27 @@ export default function ExpertPanel() {
                   <strong>{getStatusLabel(lastGenerationResult.status)}</strong>
                 </div>
               </div>
+            )}
+
+            {generationRejections.length > 0 && (
+              <section className="rejectionBlock">
+                <div className="rejectionHeader">
+                  <div>
+                    <h4>Отклонённые примеры</h4>
+                    <p>Система показывает, какие корпусные примеры не были использованы при генерации и по какой причине.</p>
+                  </div>
+                  <span>{generationRejections.length}</span>
+                </div>
+
+                <div className="rejectionList">
+                  {generationRejections.map((item) => (
+                    <article className="rejectionItem" key={item.id}>
+                      <strong>{item.example_text}</strong>
+                      <p>{item.reason_text}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
             )}
 
             {exerciseGroups.length === 0 && (
