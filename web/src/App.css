@@ -1000,3 +1000,69 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
+
+.adminItemRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: stretch;
+  border: 1px solid #2f2f2f;
+  background: #080808;
+}
+
+.adminItemRow.active {
+  border-color: #25a7ff;
+  background: #0d1f2e;
+}
+
+.adminItemMain {
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.adminItemMain strong,
+.adminItemMain span,
+.adminItemMain small {
+  display: block;
+}
+
+.adminItemMain strong {
+  margin-bottom: 6px;
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.adminItemMain span {
+  margin-bottom: 8px;
+  color: #baffff;
+  line-height: 1.35;
+}
+
+.adminItemMain small {
+  color: #25a7ff;
+}
+
+.dangerIconButton {
+  min-width: 96px;
+  border: 0;
+  border-left: 1px solid #3a3a3a;
+  background: #241010;
+  color: #ffb3b3;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.dangerIconButton:hover:not(:disabled) {
+  background: #4a1515;
+  color: #ffffff;
+}
+
+.dangerIconButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
