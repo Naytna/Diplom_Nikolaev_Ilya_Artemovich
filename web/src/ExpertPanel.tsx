@@ -411,6 +411,44 @@ export default function ExpertPanel() {
     }
   }
 
+  async function deleteCourse(course: Course) {
+    if (course.status !== 'draft') {
+      setError('Можно удалить только черновой курс')
+      return
+    }
+
+    const confirmed = window.confirm(`Удалить курс “${course.title}”? Все темы и материалы курса будут удалены.`)
+    if (!confirmed) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await api(`/courses/${course.id}`, {
+        method: 'DELETE',
+      })
+
+      if (selectedCourseId === course.id) {
+        setSelectedCourseId(null)
+        setSelectedThemeId(null)
+        setThemes([])
+        setExercises([])
+        setGenerationRejections([])
+        setLastGenerationResult(null)
+      }
+
+      await loadCourses()
+      setMessage('Курс удалён')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось удалить курс')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function createTheme(event: FormEvent) {
     event.preventDefault()
 
@@ -472,6 +510,45 @@ export default function ExpertPanel() {
       setMessage('Тема опубликована')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось опубликовать тему')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function deleteTheme(theme: Theme) {
+    if (theme.status !== 'draft') {
+      setError('Можно удалить только черновую тему')
+      return
+    }
+
+    const confirmed = window.confirm(`Удалить тему “${theme.title}”? Словарь, упражнения и журналы генерации темы будут удалены.`)
+    if (!confirmed) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await api(`/themes/${theme.id}`, {
+        method: 'DELETE',
+      })
+
+      if (selectedThemeId === theme.id) {
+        setSelectedThemeId(null)
+        setExercises([])
+        setGenerationRejections([])
+        setLastGenerationResult(null)
+      }
+
+      if (selectedCourseId) {
+        await loadThemes(selectedCourseId)
+      }
+
+      setMessage('Тема удалена')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось удалить тему')
     } finally {
       setLoading(false)
     }
@@ -775,17 +852,31 @@ export default function ExpertPanel() {
               <div>
                 <div className="adminList">
                   {courses.map((course) => (
-                    <button
+                    <div
                       key={course.id}
-                      className={course.id === selectedCourseId ? 'adminItem active' : 'adminItem'}
-                      onClick={() => {
-                        setSelectedCourseId(course.id)
-                        setActiveTab('themes')
-                      }}
+                      className={course.id === selectedCourseId ? 'adminItemRow active' : 'adminItemRow'}
                     >
-                      <strong>{course.title}</strong>
-                      <span>{getStatusLabel(course.status)}</span>
-                    </button>
+                      <button
+                        className="adminItemMain"
+                        onClick={() => {
+                          setSelectedCourseId(course.id)
+                          setActiveTab('themes')
+                        }}
+                      >
+                        <strong>{course.title}</strong>
+                        <span>{course.description}</span>
+                        <small>{getStatusLabel(course.status)}</small>
+                      </button>
+
+                      <button
+                        className="dangerIconButton"
+                        disabled={course.status !== 'draft'}
+                        onClick={() => deleteCourse(course)}
+                        title={course.status === 'draft' ? 'Удалить курс' : 'Опубликованный курс нельзя удалить'}
+                      >
+                        Удалить
+                      </button>
+                    </div>
                   ))}
                 </div>
 
@@ -831,17 +922,31 @@ export default function ExpertPanel() {
               <div>
                 <div className="adminList">
                   {themes.map((theme) => (
-                    <button
+                    <div
                       key={theme.id}
-                      className={theme.id === selectedThemeId ? 'adminItem active' : 'adminItem'}
-                      onClick={() => {
-                        setSelectedThemeId(theme.id)
-                        setActiveTab('vocabulary')
-                      }}
+                      className={theme.id === selectedThemeId ? 'adminItemRow active' : 'adminItemRow'}
                     >
-                      <strong>{theme.title}</strong>
-                      <span>{getStatusLabel(theme.status)}</span>
-                    </button>
+                      <button
+                        className="adminItemMain"
+                        onClick={() => {
+                          setSelectedThemeId(theme.id)
+                          setActiveTab('vocabulary')
+                        }}
+                      >
+                        <strong>{theme.title}</strong>
+                        <span>{theme.description}</span>
+                        <small>Порядок: {theme.order_index} · {getStatusLabel(theme.status)}</small>
+                      </button>
+
+                      <button
+                        className="dangerIconButton"
+                        disabled={theme.status !== 'draft'}
+                        onClick={() => deleteTheme(theme)}
+                        title={theme.status === 'draft' ? 'Удалить тему' : 'Опубликованную тему нельзя удалить'}
+                      >
+                        Удалить
+                      </button>
+                    </div>
                   ))}
                 </div>
 

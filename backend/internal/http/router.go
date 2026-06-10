@@ -221,6 +221,23 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB) {
 		return c.JSON(fiber.Map{"id": id, "status": "published"})
 	})
 
+	app.Delete("/api/courses/:id", func(c *fiber.Ctx) error {
+		id, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id курса")
+		}
+
+		err = deleteDraftCourse(db, id, 2)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return errorJSON(c, 404, "курс не найден")
+			}
+			return errorJSON(c, 400, err.Error())
+		}
+
+		return c.JSON(fiber.Map{"id": id, "status": "deleted"})
+	})
+
 	app.Get("/api/themes/:id", func(c *fiber.Ctx) error {
 		id, err := parseID(c, "id")
 		if err != nil {
@@ -282,6 +299,23 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB) {
 		}
 		audit(db, 2, "publish", "theme", id)
 		return c.JSON(fiber.Map{"id": id, "status": "published"})
+	})
+
+	app.Delete("/api/themes/:id", func(c *fiber.Ctx) error {
+		id, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id темы")
+		}
+
+		err = deleteDraftTheme(db, id, 2)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return errorJSON(c, 404, "тема не найдена")
+			}
+			return errorJSON(c, 400, err.Error())
+		}
+
+		return c.JSON(fiber.Map{"id": id, "status": "deleted"})
 	})
 
 	app.Get("/api/themes/:id/translated-words", func(c *fiber.Ctx) error {
@@ -534,6 +568,142 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB) {
 		}
 		return c.JSON(rows)
 	})
+}
+
+func deleteDraftCourse(db *gorm.DB, courseID int64, userID int64) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		var course struct {
+			ID     int64
+			Status string
+		}
+
+		err := tx.Table("learning.courses").
+			Select("id, status").
+			Where("id = ?", courseID).
+			Take(&course).Error
+		if err != nil {
+			return err
+		}
+
+		if course.Status != "draft" {
+			return fiber.NewError(400, "можно удалить только черновой курс")
+		}
+
+		var publishedThemesCount int64
+		err = tx.Table("learning.themes").
+			Where("course_id = ? and status <> 'draft'", courseID).
+			Count(&publishedThemesCount).Error
+		if err != nil {
+			return err
+		}
+
+		if publishedThemesCount > 0 {
+			return fiber.NewError(400, "нельзя удалить курс, в котором есть опубликованные темы")
+		}
+
+		var themeIDs []int64
+		err = tx.Table("learning.themes").
+			Where("course_id = ?", courseID).
+			Pluck("id", &themeIDs).Error
+		if err != nil {
+			return err
+		}
+
+		for _, themeID := range themeIDs {
+			if err := deleteThemeData(tx, themeID); err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Exec("delete from learning.themes where course_id = ?", courseID).Error; err != nil {
+			return err
+		}
+
+		result := tx.Exec("delete from learning.courses where id = ?", courseID)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+
+		audit(tx, userID, "delete", "course", courseID)
+		return nil
+	})
+}
+
+func deleteDraftTheme(db *gorm.DB, themeID int64, userID int64) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		var theme struct {
+			ID     int64
+			Status string
+		}
+
+		err := tx.Table("learning.themes").
+			Select("id, status").
+			Where("id = ?", themeID).
+			Take(&theme).Error
+		if err != nil {
+			return err
+		}
+
+		if theme.Status != "draft" {
+			return fiber.NewError(400, "можно удалить только черновую тему")
+		}
+
+		if err := deleteThemeData(tx, themeID); err != nil {
+			return err
+		}
+
+		result := tx.Exec("delete from learning.themes where id = ?", themeID)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+
+		audit(tx, userID, "delete", "theme", themeID)
+		return nil
+	})
+}
+
+func deleteThemeData(tx *gorm.DB, themeID int64) error {
+	if err := tx.Exec(`
+		delete from learning.exercise_reviews
+		where exercise_id in (
+			select id from learning.exercises where theme_id = ?
+		)
+	`, themeID).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Exec(`
+		delete from learning.exercise_segments
+		where exercise_id in (
+			select id from learning.exercises where theme_id = ?
+		)
+	`, themeID).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Exec("delete from learning.exercises where theme_id = ?", themeID).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Exec("delete from learning.generation_rejections where theme_id = ?", themeID).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Exec("delete from learning.generation_runs where theme_id = ?", themeID).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Exec("delete from learning.theme_translated_words where theme_id = ?", themeID).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func reviewExercise(c *fiber.Ctx, db *gorm.DB, decision string) error {
