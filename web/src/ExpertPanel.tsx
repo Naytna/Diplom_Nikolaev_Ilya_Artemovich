@@ -1006,6 +1006,15 @@ export default function ExpertPanel() {
                     </button>
                   ))}
                 </div>
+
+                {selectedTheme && (
+                  <button
+                    className="secondaryButton fullWidth flowAction"
+                    onClick={() => setActiveTab('generation')}
+                  >
+                    Перейти к генерации заданий
+                  </button>
+                )}
               </>
             )}
           </section>
@@ -1066,6 +1075,15 @@ export default function ExpertPanel() {
                   ))}
                 </div>
               </section>
+            )}
+
+            {selectedTheme && exercises.length > 0 && (
+              <button
+                className="secondaryButton fullWidth"
+                onClick={() => setActiveTab('materials')}
+              >
+                Перейти к предпросмотру материалов
+              </button>
             )}
 
             {exerciseGroups.length === 0 && (

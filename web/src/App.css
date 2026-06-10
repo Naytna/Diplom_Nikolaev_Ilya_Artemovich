@@ -1066,3 +1066,7 @@ h3 {
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+.flowAction {
+  margin-top: 18px;
+}
