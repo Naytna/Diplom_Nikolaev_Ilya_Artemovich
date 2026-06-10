@@ -863,3 +863,140 @@ h3 {
   font-size: 14px;
   line-height: 1.4;
 }
+
+.materialsScreen {
+  min-height: 620px;
+}
+
+.materialsPreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.materialSheet {
+  background: #060606;
+  border: 1px solid #3a3a3a;
+  padding: 18px;
+}
+
+.materialSheetHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #2b2b2b;
+}
+
+.materialSheetHeader span {
+  display: block;
+  margin-bottom: 6px;
+  color: #25a7ff;
+  font-weight: 700;
+}
+
+.materialSheetHeader h4 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 22px;
+}
+
+.materialSheetHeader small {
+  color: #9fffff;
+  white-space: nowrap;
+}
+
+.materialList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.materialExercise {
+  padding: 16px;
+  background: #0b0b0b;
+  border: 1px solid #303030;
+}
+
+.previewMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #9fffff;
+  font-size: 14px;
+}
+
+.previewMeta strong {
+  color: #25a7ff;
+}
+
+.materialQuestion {
+  margin-bottom: 14px;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.materialAnswer,
+.hiddenAnswer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.materialAnswer span,
+.hiddenAnswer span {
+  color: #baffff;
+}
+
+.answerSequence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.answerSequence strong {
+  padding: 8px 12px;
+  background: #123047;
+  border: 1px solid #25a7ff;
+  color: #ffffff;
+}
+
+.workbookSlots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.answerSlot {
+  min-width: 54px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #25a7ff;
+  color: #25a7ff;
+  background: #080808;
+  font-weight: 700;
+}
+
+.materialExplanation {
+  margin-top: 12px;
+  color: #baffff;
+  line-height: 1.45;
+}
+
+.workbookSheet .answerButton {
+  margin-top: 14px;
+}
+
+@media (max-width: 1100px) {
+  .materialsPreviewGrid {
+    grid-template-columns: 1fr;
+  }
+}
