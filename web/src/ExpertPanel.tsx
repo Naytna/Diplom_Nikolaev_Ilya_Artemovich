@@ -91,7 +91,7 @@ type AuditLog = {
 }
 
 const API_URL = 'http://localhost:18080/api'
-type ExpertTab = 'courses' | 'themes' | 'vocabulary' | 'generation' | 'logs'
+type ExpertTab = 'courses' | 'themes' | 'vocabulary' | 'generation' | 'materials' | 'logs'
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -199,6 +199,7 @@ export default function ExpertPanel() {
   const [audit, setAudit] = useState<AuditLog[]>([])
   const [lastGenerationResult, setLastGenerationResult] = useState<GenerationRun | null>(null)
   const [generationRejections, setGenerationRejections] = useState<GenerationRejection[]>([])
+  const [visibleWorkbookAnswers, setVisibleWorkbookAnswers] = useState<Record<number, boolean>>({})
 
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
   const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null)
@@ -316,7 +317,9 @@ export default function ExpertPanel() {
   useEffect(() => {
     setLastGenerationResult(null)
     setGenerationRejections([])
+    setVisibleWorkbookAnswers({})
   }, [selectedThemeId])
+
 
   useEffect(() => {
     if (!selectedCourseId) {
@@ -656,6 +659,13 @@ export default function ExpertPanel() {
     }, {}),
   )
 
+  const previewExercises = exercises
+    .filter((exercise) => exercise.status !== 'rejected')
+    .sort((a, b) => a.id - b.id)
+
+  const textbookExercises = previewExercises.filter((exercise) => exercise.target_mode === 'textbook')
+  const workbookExercises = previewExercises.filter((exercise) => exercise.target_mode === 'workbook')
+
   const sortedRuns = [...runs].sort((a, b) => b.id - a.id)
 
   const getThemeLabel = (themeId: number) => {
@@ -714,12 +724,20 @@ export default function ExpertPanel() {
           Генерация
         </button>
         <button
+          className={activeTab === 'materials' ? 'expertTab active' : 'expertTab'}
+          onClick={() => setActiveTab('materials')}
+        >
+          Материалы
+        </button>        
+        <button
           className={activeTab === 'logs' ? 'expertTab active' : 'expertTab'}
           onClick={() => setActiveTab('logs')}
         >
           Журнал
         </button>
       </nav>
+
+
 
       {(loading || message || error) && (
         <div className="expertNotifications">
@@ -993,6 +1011,137 @@ export default function ExpertPanel() {
                 </article>
               ))}
             </div>
+          </section>
+        )}
+
+        {activeTab === 'materials' && (
+          <section className="expertCard expertSingleScreen materialsScreen">
+            <div className="screenHeader">
+              <div>
+                <h3>Предпросмотр учебных материалов</h3>
+                <p>
+                  {selectedTheme
+                    ? `Тема: ${selectedTheme.title}. Эксперт видит, как материалы будут выглядеть для ученика.`
+                    : 'Сначала выберите тему'}
+                </p>
+              </div>
+
+              {selectedTheme && (
+                <button className="primaryButton" onClick={publishTheme}>
+                  Опубликовать тему
+                </button>
+              )}
+            </div>
+
+            {!selectedTheme && <p className="muted">Выберите тему в разделе “Темы”.</p>}
+
+            {selectedTheme && textbookExercises.length === 0 && workbookExercises.length === 0 && (
+              <p className="muted">
+                Для выбранной темы пока нет сгенерированных материалов. Сначала запустите генерацию заданий.
+              </p>
+            )}
+
+            {selectedTheme && (textbookExercises.length > 0 || workbookExercises.length > 0) && (
+              <div className="materialsPreviewGrid">
+                <article className="materialSheet">
+                  <div className="materialSheetHeader">
+                    <div>
+                      <span>Учебник</span>
+                      <h4>{selectedTheme.title}</h4>
+                    </div>
+                    <small>{textbookExercises.length} заданий</small>
+                  </div>
+
+                  <div className="materialList">
+                    {textbookExercises.map((exercise, index) => (
+                      <section className="materialExercise" key={exercise.id}>
+                        <div className="previewMeta">
+                          <span>Задание {index + 1}</span>
+                          <strong>{getStatusLabel(exercise.status)}</strong>
+                        </div>
+
+                        <p className="materialQuestion">{exercise.phrase}</p>
+
+                        <div className="materialAnswer">
+                          <span>Последовательность жестов:</span>
+                          <div className="answerSequence">
+                            {(exercise.segments ?? []).map((segment) => (
+                              <strong key={segment.id}>{segment.gesture_name}</strong>
+                            ))}
+                          </div>
+                        </div>
+
+                        {exercise.explanation && (
+                          <p className="materialExplanation">{exercise.explanation}</p>
+                        )}
+                      </section>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="materialSheet workbookSheet">
+                  <div className="materialSheetHeader">
+                    <div>
+                      <span>Рабочая тетрадь</span>
+                      <h4>{selectedTheme.title}</h4>
+                    </div>
+                    <small>{workbookExercises.length} заданий</small>
+                  </div>
+
+                  <div className="materialList">
+                    {workbookExercises.map((exercise, index) => {
+                      const isAnswerVisible = Boolean(visibleWorkbookAnswers[exercise.id])
+                      const segments = exercise.segments ?? []
+
+                      return (
+                        <section className="materialExercise" key={exercise.id}>
+                          <div className="previewMeta">
+                            <span>Задание {index + 1}</span>
+                            <strong>{getStatusLabel(exercise.status)}</strong>
+                          </div>
+
+                          <p className="materialQuestion">{exercise.phrase}</p>
+
+                          <div className="hiddenAnswer">
+                            <span>Запишите последовательность жестов:</span>
+
+                            {!isAnswerVisible && (
+                              <div className="workbookSlots">
+                                {segments.map((segment) => (
+                                  <span className="answerSlot" key={segment.id}>
+                                    {segment.position_index}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            {isAnswerVisible && (
+                              <div className="answerSequence">
+                                {segments.map((segment) => (
+                                  <strong key={segment.id}>{segment.gesture_name}</strong>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <button
+                            className="answerButton"
+                            onClick={() => {
+                              setVisibleWorkbookAnswers((current) => ({
+                                ...current,
+                                [exercise.id]: !current[exercise.id],
+                              }))
+                            }}
+                          >
+                            {isAnswerVisible ? 'Скрыть ответ' : 'Показать ответ'}
+                          </button>
+                        </section>
+                      )
+                    })}
+                  </div>
+                </article>
+              </div>
+            )}
           </section>
         )}
 
