@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"gorm.io/gorm"
 )
@@ -36,6 +37,34 @@ type sourceSegment struct {
 	GestureName      string
 	VideoURL         string
 	PositionIndex    int
+}
+
+var ignoredCoverageWords = map[string]bool{
+	"в":     true,
+	"во":    true,
+	"на":    true,
+	"у":     true,
+	"и":     true,
+	"а":     true,
+	"но":    true,
+	"по":    true,
+	"для":   true,
+	"из":    true,
+	"к":     true,
+	"ко":    true,
+	"с":     true,
+	"со":    true,
+	"о":     true,
+	"об":    true,
+	"от":    true,
+	"до":    true,
+	"же":    true,
+	"ли":    true,
+	"есть":  true,
+	"был":   true,
+	"была":  true,
+	"было":  true,
+	"были":  true,
 }
 
 type generationRejection struct {
@@ -85,7 +114,7 @@ func (s *GenerationService) Generate(themeID int64, userID int64) (GenerationRes
 				return err
 			}
 
-			allowed, reasonCode, reasonText := s.validateExample(segments, themeSet)
+			allowed, reasonCode, reasonText := s.validateExample(example.Text, segments, themeSet)
 			if !allowed {
 				result.RejectedExamples++
 				rejections = append(rejections, generationRejection{
@@ -156,11 +185,13 @@ func (s *GenerationService) loadThemeTranslatedWords(themeID int64) ([]int64, er
 func (s *GenerationService) findCandidateExamples(ids []int64) ([]candidateExample, error) {
 	var examples []candidateExample
 	err := s.db.Raw(`
-		select distinct le.id, le.text
+		select le.id, le.text
 		from linguistic.lit_examples le
 		join linguistic.lit_example_segments les on les.lit_example_id = le.id
 		where le.status in ('verified', 'published')
 		and les.translated_word_id in ?
+		group by le.id, le.text
+		having count(distinct les.translated_word_id) >= 2
 		order by le.id
 	`, ids).Scan(&examples).Error
 	return examples, err
@@ -186,9 +217,16 @@ func (s *GenerationService) loadExampleSegments(tx *gorm.DB, exampleID int64) ([
 	return segments, err
 }
 
-func (s *GenerationService) validateExample(segments []sourceSegment, themeSet map[int64]bool) (bool, string, string) {
+func (s *GenerationService) validateExample(exampleText string, segments []sourceSegment, themeSet map[int64]bool) (bool, string, string) {
 	if len(segments) < 2 {
 		return false, "not_enough_segments", "В примере меньше двух жестовых сегментов, поэтому из него нельзя сформировать полноценное упражнение"
+	}
+
+	missingWords := s.findMissingMeaningfulWords(exampleText, segments)
+	if len(missingWords) > 0 {
+		return false,
+			"incomplete_segmentation",
+			fmt.Sprintf("Пример содержит значимые слова без жестового сегмента: %s", strings.Join(missingWords, ", "))
 	}
 
 	outsideWords := make([]string, 0)
@@ -209,6 +247,60 @@ func (s *GenerationService) validateExample(segments []sourceSegment, themeSet m
 	}
 
 	return true, "", ""
+}
+
+func (s *GenerationService) findMissingMeaningfulWords(exampleText string, segments []sourceSegment) []string {
+	exampleWords := tokenizeMeaningfulWords(exampleText)
+
+	coveredWords := make(map[string]bool)
+	for _, segment := range segments {
+		for _, word := range tokenizeMeaningfulWords(segment.WordText) {
+			coveredWords[word] = true
+		}
+	}
+
+	missing := make([]string, 0)
+	seen := make(map[string]bool)
+
+	for _, word := range exampleWords {
+		if ignoredCoverageWords[word] {
+			continue
+		}
+		if coveredWords[word] {
+			continue
+		}
+		if seen[word] {
+			continue
+		}
+
+		missing = append(missing, word)
+		seen[word] = true
+	}
+
+	return missing
+}
+
+func tokenizeMeaningfulWords(value string) []string {
+	words := make([]string, 0)
+
+	for _, raw := range strings.FieldsFunc(value, func(r rune) bool {
+		return !unicode.IsLetter(r)
+	}) {
+		normalized := normalizeCoverageWord(raw)
+		if normalized == "" {
+			continue
+		}
+
+		words = append(words, normalized)
+	}
+
+	return words
+}
+
+func normalizeCoverageWord(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = strings.ReplaceAll(value, "ё", "е")
+	return value
 }
 
 func (s *GenerationService) exampleAlreadyUsed(tx *gorm.DB, themeID int64, exampleID int64) (bool, error) {
