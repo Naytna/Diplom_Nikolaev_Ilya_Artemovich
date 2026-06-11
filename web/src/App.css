@@ -1110,3 +1110,127 @@ h3 {
   line-height: 1.5;
   color: #9ffcff;
 }
+
+.courseContextCard {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid #24445a;
+  border-left: 4px solid #38a8e8;
+  background: linear-gradient(90deg, #061522 0%, #050505 100%);
+}
+
+.courseContextCard strong {
+  display: block;
+  margin-top: 8px;
+  color: #ffffff;
+  font-size: 18px;
+}
+
+.courseContextCard p {
+  margin: 8px 0 0;
+  color: #9ffcff;
+  line-height: 1.4;
+}
+
+.contextLabel {
+  display: inline-block;
+  color: #38a8e8;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.contextMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.contextMeta span {
+  padding: 4px 8px;
+  border: 1px solid #2f2f2f;
+  background: #0d0d0d;
+  color: #9ffcff;
+  font-size: 13px;
+}
+
+.listSectionHeader {
+  margin-top: 22px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2f2f2f;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.listSectionHeader span {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.listSectionHeader small {
+  min-width: 28px;
+  padding: 3px 8px;
+  border: 1px solid #24445a;
+  background: #07131c;
+  color: #38a8e8;
+  text-align: center;
+  font-weight: 800;
+}
+
+.themeList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.themeListItem {
+  width: 100%;
+  padding: 15px 16px;
+  border: 1px solid #333333;
+  background: #060606;
+  color: #d8ffff;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.themeListItem:hover {
+  border-color: #38a8e8;
+}
+
+.themeListItem.active {
+  border-color: #38a8e8;
+  background: #0a2030;
+}
+
+.themeListItem span {
+  display: block;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.themeListItem small {
+  display: block;
+  margin-top: 6px;
+  color: #9ffcff;
+  line-height: 1.35;
+}
+
+.themeListItem em {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid #24445a;
+  background: #07131c;
+  color: #38a8e8;
+  font-style: normal;
+  font-weight: 800;
+}

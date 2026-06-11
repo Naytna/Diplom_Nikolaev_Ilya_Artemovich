@@ -324,30 +324,40 @@ function App() {
             <h2>Темы</h2>
           </div>
 
-          {!currentCourse && (
-            <p className="muted">Выберите курс</p>
-          )}
-
-          {currentCourse && (
-            <div className="courseInfo">
+          {currentCourse ? (
+            <div className="courseContextCard">
+              <span className="contextLabel">Выбранный курс</span>
               <strong>{currentCourse.title}</strong>
               <p>{currentCourse.description}</p>
+              <div className="contextMeta">
+                <span>Опубликованных тем: {currentCourse.themes_count}</span>
+              </div>
             </div>
+          ) : (
+            <p className="muted">Выберите курс для просмотра тем</p>
           )}
+
+          <div className="listSectionHeader">
+            <span>Темы курса</span>
+            <small>{courseDetails?.themes?.length ?? 0}</small>
+          </div>
 
           {selectedCourseId && courseDetails && (courseDetails.themes ?? []).length === 0 && (
             <p className="muted">У выбранного курса пока нет опубликованных тем</p>
           )}
 
-          <div className="list">
+          <div className="themeList">
             {(courseDetails?.themes ?? []).map((theme) => (
               <button
-                className={theme.id === selectedThemeId ? 'listItem active' : 'listItem'}
+                className={theme.id === selectedThemeId ? 'themeListItem active' : 'themeListItem'}
                 key={theme.id}
                 onClick={() => setSelectedThemeId(theme.id)}
               >
-                <span>{theme.title}</span>
-                <small>№ {theme.order_index}</small>
+                <div>
+                  <span>{theme.title}</span>
+                  <small>{theme.description}</small>
+                </div>
+                <em>№ {theme.order_index}</em>
               </button>
             ))}
           </div>
