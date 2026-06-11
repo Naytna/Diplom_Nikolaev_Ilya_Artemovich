@@ -335,6 +335,10 @@ function App() {
             </div>
           )}
 
+          {selectedCourseId && courseDetails && (courseDetails.themes ?? []).length === 0 && (
+            <p className="muted">У выбранного курса пока нет опубликованных тем</p>
+          )}
+
           <div className="list">
             {(courseDetails?.themes ?? []).map((theme) => (
               <button
@@ -376,6 +380,36 @@ function App() {
 
           {contentLoading && (
             <div className="loadingBox">Загрузка материалов...</div>
+          )}
+
+          {!contentLoading && !themeFull && (
+            <div className="emptyState">
+              {!selectedCourseId ? (
+                <>
+                  <h3>Выберите курс</h3>
+                  <p>Для просмотра материалов выберите опубликованный курс в левом списке.</p>
+                </>
+              ) : courseDetails && (courseDetails.themes ?? []).length === 0 ? (
+                <>
+                  <h3>В курсе пока нет опубликованных тем</h3>
+                  <p>
+                    Материалы появятся после публикации темы и одобрения упражнений в экспертной части.
+                  </p>
+                </>
+              ) : !selectedThemeId ? (
+                <>
+                  <h3>Выберите тему</h3>
+                  <p>Для просмотра учебника или рабочей тетради выберите тему курса.</p>
+                </>
+              ) : (
+                <>
+                  <h3>Материалы темы пока недоступны</h3>
+                  <p>
+                    Для выбранной темы пока нет опубликованных материалов в режиме учебника или рабочей тетради.
+                  </p>
+                </>
+              )}
+            </div>
           )}
 
           {!contentLoading && themeFull && (

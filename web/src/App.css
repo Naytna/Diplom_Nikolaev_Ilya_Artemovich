@@ -1089,3 +1089,24 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
+
+.emptyState {
+  margin-top: 28px;
+  padding: 28px;
+  border: 1px dashed #3b3b3b;
+  background: #070707;
+  color: #9ffcff;
+}
+
+.emptyState h3 {
+  margin: 0 0 10px;
+  color: #ffffff;
+  font-size: 22px;
+}
+
+.emptyState p {
+  margin: 0;
+  max-width: 720px;
+  line-height: 1.5;
+  color: #9ffcff;
+}
