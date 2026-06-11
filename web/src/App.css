@@ -1070,3 +1070,22 @@ h3 {
 .flowAction {
   margin-top: 18px;
 }
+
+.stackedActions {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #2f2f2f;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.stackedActions .fullWidth {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .stackedActions {
+    grid-template-columns: 1fr;
+  }
+}

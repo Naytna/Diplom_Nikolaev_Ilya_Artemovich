@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import ExpertPanel from './ExpertPanel'
 
@@ -99,18 +99,34 @@ function App() {
   const [contentLoading, setContentLoading] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    fetch(`${API_URL}/public/courses`)
+  const loadPublicCourses = useCallback(() => {
+  setLoading(true)
+
+    return fetch(`${API_URL}/public/courses`)
       .then((response) => {
         if (!response.ok) {
           throw new Error('Не удалось загрузить список курсов')
         }
         return response.json()
       })
-      .then((data: Course[]) => {
-        setCourses(data)
-        if (data.length > 0) {
-          setSelectedCourseId(data[0].id)
+      .then((data: Course[] | null) => {
+        const safeData = Array.isArray(data) ? data : []
+
+        setCourses(safeData)
+
+        if (safeData.length > 0) {
+          setSelectedCourseId((current) => {
+            if (current && safeData.some((course) => course.id === current)) {
+              return current
+            }
+
+            return safeData[0].id
+          })
+        } else {
+          setSelectedCourseId(null)
+          setCourseDetails(null)
+          setSelectedThemeId(null)
+          setThemeFull(null)
         }
       })
       .catch((err: Error) => {
@@ -120,6 +136,10 @@ function App() {
         setLoading(false)
       })
   }, [])
+
+  useEffect(() => {
+    loadPublicCourses()
+  }, [loadPublicCourses])
 
   useEffect(() => {
     if (!selectedCourseId) {
@@ -135,10 +155,23 @@ function App() {
         }
         return response.json()
       })
-      .then((data: CourseDetails) => {
-        setCourseDetails(data)
-        if (data.themes.length > 0) {
-          setSelectedThemeId(data.themes[0].id)
+      .then((data: CourseDetails | null) => {
+        if (!data) {
+          setCourseDetails(null)
+          setSelectedThemeId(null)
+          setThemeFull(null)
+          return
+        }
+
+        const safeData = {
+          ...data,
+          themes: Array.isArray(data.themes) ? data.themes : [],
+        }
+
+        setCourseDetails(safeData)
+
+        if (safeData.themes.length > 0) {
+          setSelectedThemeId(safeData.themes[0].id)
         } else {
           setSelectedThemeId(null)
           setThemeFull(null)
@@ -178,9 +211,13 @@ function App() {
       })
   }, [selectedThemeId, mode])
 
+  const safeCourses = useMemo(() => {
+    return Array.isArray(courses) ? courses : []
+  }, [courses])
+
   const currentCourse = useMemo(() => {
-    return courses.find((course) => course.id === selectedCourseId) ?? null
-  }, [courses, selectedCourseId])
+    return safeCourses.find((course) => course.id === selectedCourseId) ?? null
+  }, [safeCourses, selectedCourseId])
 
   const toggleAnswer = (exerciseId: number) => {
     setRevealed((prev) => ({
@@ -225,7 +262,7 @@ function App() {
       </header>
 
       {section === 'expert' ? (
-        <ExpertPanel />
+        <ExpertPanel onPublicContentChanged={loadPublicCourses} />
       ) : (
         <section className="workspace">
         <aside className="panel sidebar">
@@ -233,12 +270,12 @@ function App() {
             <h2>Курсы</h2>
           </div>
 
-          {courses.length === 0 && (
+          {safeCourses.length === 0 && (
             <p className="muted">Опубликованные курсы отсутствуют</p>
           )}
 
           <div className="list">
-            {courses.map((course) => (
+            {safeCourses.map((course) => (
               <button
                 className={course.id === selectedCourseId ? 'listItem active' : 'listItem'}
                 key={course.id}
@@ -268,7 +305,7 @@ function App() {
           )}
 
           <div className="list">
-            {courseDetails?.themes.map((theme) => (
+            {(courseDetails?.themes ?? []).map((theme) => (
               <button
                 className={theme.id === selectedThemeId ? 'listItem active' : 'listItem'}
                 key={theme.id}

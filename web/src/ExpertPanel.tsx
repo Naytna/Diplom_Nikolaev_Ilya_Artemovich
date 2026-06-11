@@ -187,7 +187,11 @@ function formatDateTime(value?: string) {
   }).format(date)
 }
 
-export default function ExpertPanel() {
+type ExpertPanelProps = {
+  onPublicContentChanged?: () => void | Promise<void>
+}
+
+export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps) {
   const [activeTab, setActiveTab] = useState<ExpertTab>('courses')
   const [courses, setCourses] = useState<Course[]>([])
   const [themes, setThemes] = useState<Theme[]>([])
@@ -403,9 +407,34 @@ export default function ExpertPanel() {
       })
 
       await loadCourses()
+      await onPublicContentChanged?.()
       setMessage('Курс опубликован')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось опубликовать курс')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function unpublishCourse() {
+    if (!selectedCourseId) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await api(`/courses/${selectedCourseId}/unpublish`, {
+        method: 'POST',
+      })
+
+      await loadCourses()
+      await onPublicContentChanged?.()
+      setMessage('Курс снят с публикации')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось снять курс с публикации')
     } finally {
       setLoading(false)
     }
@@ -441,6 +470,7 @@ export default function ExpertPanel() {
       }
 
       await loadCourses()
+      await onPublicContentChanged?.()
       setMessage('Курс удалён')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось удалить курс')
@@ -507,9 +537,37 @@ export default function ExpertPanel() {
         await loadThemes(selectedCourseId)
       }
 
+      await onPublicContentChanged?.()
       setMessage('Тема опубликована')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось опубликовать тему')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function unpublishTheme() {
+    if (!selectedThemeId) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      await api(`/themes/${selectedThemeId}/unpublish`, {
+        method: 'POST',
+      })
+
+      if (selectedCourseId) {
+        await loadThemes(selectedCourseId)
+      }
+
+      await onPublicContentChanged?.()
+      setMessage('Тема снята с публикации')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось снять тему с публикации')
     } finally {
       setLoading(false)
     }
@@ -546,6 +604,7 @@ export default function ExpertPanel() {
         await loadThemes(selectedCourseId)
       }
 
+      await onPublicContentChanged?.()
       setMessage('Тема удалена')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось удалить тему')
@@ -677,11 +736,12 @@ export default function ExpertPanel() {
           comment: 'Проверено через экспертный интерфейс',
         }),
       })
-
+      
       if (selectedThemeId) {
         await loadThemeData(selectedThemeId)
       }
 
+      await onPublicContentChanged?.()
       setMessage('Упражнение одобрено')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось одобрить упражнение')
@@ -708,6 +768,7 @@ export default function ExpertPanel() {
         await loadThemeData(selectedThemeId)
       }
 
+      await onPublicContentChanged?.()
       setMessage('Упражнение отклонено')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось отклонить упражнение')
@@ -860,8 +921,7 @@ export default function ExpertPanel() {
                         className="adminItemMain"
                         onClick={() => {
                           setSelectedCourseId(course.id)
-                          setActiveTab('themes')
-                        }}
+                        }}  
                       >
                         <strong>{course.title}</strong>
                         <span>{course.description}</span>
@@ -879,12 +939,26 @@ export default function ExpertPanel() {
                     </div>
                   ))}
                 </div>
+                  {selectedCourse && (
+                    <div className="stackedActions">
+                      <button
+                        className="secondaryButton fullWidth"
+                        onClick={() => setActiveTab('themes')}
+                      >
+                        Перейти к темам выбранного курса
+                      </button>
 
-                {selectedCourse && (
-                  <button className="secondaryButton fullWidth" onClick={publishCourse}>
-                    Опубликовать выбранный курс
-                  </button>
-                )}
+                      {selectedCourse.status === 'published' ? (
+                        <button className="secondaryButton fullWidth" onClick={unpublishCourse}>
+                          Снять курс с публикации
+                        </button>
+                      ) : (
+                        <button className="secondaryButton fullWidth" onClick={publishCourse}>
+                          Опубликовать выбранный курс
+                        </button>
+                      )}
+                    </div>
+                  )}
               </div>
             </div>
           </section>
@@ -930,7 +1004,6 @@ export default function ExpertPanel() {
                         className="adminItemMain"
                         onClick={() => {
                           setSelectedThemeId(theme.id)
-                          setActiveTab('vocabulary')
                         }}
                       >
                         <strong>{theme.title}</strong>
@@ -949,12 +1022,26 @@ export default function ExpertPanel() {
                     </div>
                   ))}
                 </div>
+                  {selectedTheme && (
+                    <div className="stackedActions">
+                      <button
+                        className="secondaryButton fullWidth"
+                        onClick={() => setActiveTab('vocabulary')}
+                      >
+                        Перейти к словарю выбранной темы
+                      </button>
 
-                {selectedTheme && (
-                  <button className="secondaryButton fullWidth" onClick={publishTheme}>
-                    Опубликовать выбранную тему
-                  </button>
-                )}
+                      {selectedTheme.status === 'published' ? (
+                        <button className="secondaryButton fullWidth" onClick={unpublishTheme}>
+                          Снять тему с публикации
+                        </button>
+                      ) : (
+                        <button className="secondaryButton fullWidth" onClick={publishTheme}>
+                          Опубликовать выбранную тему
+                        </button>
+                      )}
+                    </div>
+                  )}
               </div>
             </div>
           </section>
