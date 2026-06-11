@@ -92,7 +92,6 @@ h3 {
 .modeButton,
 .primaryButton,
 .secondaryButton,
-.mainAction,
 .answerButton,
 .reviewActions button,
 .formBlock button,
@@ -132,7 +131,6 @@ h3 {
 
 .primaryButton:hover,
 .secondaryButton:hover,
-.mainAction:hover,
 .answerButton:hover,
 .reviewActions button:hover,
 .formBlock button:hover,
@@ -140,8 +138,7 @@ h3 {
   background: #237cba;
 }
 
-.primaryButton:disabled,
-.mainAction:disabled {
+.primaryButton:disabled {
   background: #4d4d4d;
   color: #bcbcbc;
   cursor: not-allowed;
@@ -194,7 +191,6 @@ h3 {
 }
 
 .listItem,
-.adminItem,
 .reviewCard,
 .compactLog div,
 .dictCard,
@@ -206,59 +202,32 @@ h3 {
   color: #d8ffff;
 }
 
-.listItem,
-.adminItem {
+.listItem {
   width: 100%;
   padding: 14px 16px;
   text-align: left;
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
   gap: 12px;
 }
 
-.listItem {
-  flex-direction: column;
-}
-
-.listItem.active,
-.adminItem.active {
+.listItem.active {
   border-color: #ffffff;
   background: #111111;
 }
 
-.listItem:hover,
-.adminItem:hover {
+.listItem:hover {
   border-color: #25a7ff;
 }
 
-.listItem span,
-.adminItem strong {
+.listItem span {
   color: #ffffff;
   font-weight: 700;
 }
 
-.listItem small,
-.adminItem span {
+.listItem small {
   color: #9fffff;
-}
-
-.courseInfo {
-  margin-bottom: 16px;
-  padding: 14px;
-  background: #080808;
-  border: 1px solid #3a3a3a;
-}
-
-.courseInfo strong {
-  display: block;
-  margin-bottom: 8px;
-  color: #ffffff;
-}
-
-.courseInfo p {
-  color: #baffff;
-  font-size: 14px;
-  line-height: 1.45;
 }
 
 .content {
@@ -432,7 +401,7 @@ h3 {
   width: 100%;
   max-width: 1480px;
   margin: 0 auto;
-  padding: 28px 24px;
+  padding: 28px 24px 24px;
 }
 
 .expertToolbar,
@@ -753,14 +722,6 @@ h3 {
   .searchBlock {
     grid-template-columns: 1fr;
   }
-}
-
-.expertPage {
-  padding-bottom: 24px;
-}
-
-.expertSingleScreen {
-  min-height: auto;
 }
 
 .logsScreen .compactLog {
