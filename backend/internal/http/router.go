@@ -221,6 +221,24 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB) {
 		return c.JSON(fiber.Map{"id": id, "status": "published"})
 	})
 
+	app.Post("/api/courses/:id/unpublish", func(c *fiber.Ctx) error {
+		id, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id курса")
+		}
+
+		result := db.Exec("update learning.courses set status = 'draft', updated_at = now() where id = ?", id)
+		if result.Error != nil {
+			return errorJSON(c, 500, result.Error.Error())
+		}
+		if result.RowsAffected == 0 {
+			return errorJSON(c, 404, "курс не найден")
+		}
+
+		audit(db, 2, "unpublish", "course", id)
+		return c.JSON(fiber.Map{"id": id, "status": "draft"})
+	})
+
 	app.Delete("/api/courses/:id", func(c *fiber.Ctx) error {
 		id, err := parseID(c, "id")
 		if err != nil {
@@ -299,6 +317,24 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB) {
 		}
 		audit(db, 2, "publish", "theme", id)
 		return c.JSON(fiber.Map{"id": id, "status": "published"})
+	})
+
+	app.Post("/api/themes/:id/unpublish", func(c *fiber.Ctx) error {
+		id, err := parseID(c, "id")
+		if err != nil {
+			return errorJSON(c, 400, "некорректный id темы")
+		}
+
+		result := db.Exec("update learning.themes set status = 'draft', updated_at = now() where id = ?", id)
+		if result.Error != nil {
+			return errorJSON(c, 500, result.Error.Error())
+		}
+		if result.RowsAffected == 0 {
+			return errorJSON(c, 404, "тема не найдена")
+		}
+
+		audit(db, 2, "unpublish", "theme", id)
+		return c.JSON(fiber.Map{"id": id, "status": "draft"})
 	})
 
 	app.Delete("/api/themes/:id", func(c *fiber.Ctx) error {
