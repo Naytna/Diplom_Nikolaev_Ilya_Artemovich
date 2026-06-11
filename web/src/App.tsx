@@ -98,9 +98,12 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [contentLoading, setContentLoading] = useState(false)
   const [error, setError] = useState('')
+  const [publicRefreshToken, setPublicRefreshToken] = useState(0)
 
-  const loadPublicCourses = useCallback(() => {
-  setLoading(true)
+  const loadPublicCourses = useCallback((silent = false) => {
+    if (!silent) {
+      setLoading(true)
+    }
 
     return fetch(`${API_URL}/public/courses`)
       .then((response) => {
@@ -133,7 +136,9 @@ function App() {
         setError(err.message)
       })
       .finally(() => {
-        setLoading(false)
+        if (!silent) {
+          setLoading(false)
+        }
       })
   }, [])
 
@@ -171,7 +176,13 @@ function App() {
         setCourseDetails(safeData)
 
         if (safeData.themes.length > 0) {
-          setSelectedThemeId(safeData.themes[0].id)
+          setSelectedThemeId((current) => {
+            if (current && safeData.themes.some((theme) => theme.id === current)) {
+              return current
+            }
+
+            return safeData.themes[0].id
+          })
         } else {
           setSelectedThemeId(null)
           setThemeFull(null)
@@ -183,10 +194,16 @@ function App() {
       .finally(() => {
         setContentLoading(false)
       })
-  }, [selectedCourseId])
+  }, [selectedCourseId, publicRefreshToken])
 
   useEffect(() => {
     if (!selectedThemeId) {
+      setThemeFull(null)
+      return
+    }
+
+    if (courseDetails && !courseDetails.themes.some((theme) => theme.id === selectedThemeId)) {
+      setThemeFull(null)
       return
     }
 
@@ -195,12 +212,21 @@ function App() {
 
     fetch(`${API_URL}/public/themes/${selectedThemeId}/${mode}-full`)
       .then((response) => {
+        if (response.status === 404) {
+          setThemeFull(null)
+          return null
+        }
+
         if (!response.ok) {
           throw new Error('Не удалось загрузить материалы темы')
         }
         return response.json()
       })
-      .then((data: ThemeFull) => {
+      .then((data: ThemeFull | null) => {
+        if (!data) {
+          return
+        }
+
         setThemeFull(normalizeThemeFull(data))
       })
       .catch((err: Error) => {
@@ -209,7 +235,7 @@ function App() {
       .finally(() => {
         setContentLoading(false)
       })
-  }, [selectedThemeId, mode])
+  }, [selectedThemeId, mode, publicRefreshToken])
 
   const safeCourses = useMemo(() => {
     return Array.isArray(courses) ? courses : []
@@ -262,7 +288,12 @@ function App() {
       </header>
 
       {section === 'expert' ? (
-        <ExpertPanel onPublicContentChanged={loadPublicCourses} />
+        <ExpertPanel
+          onPublicContentChanged={async () => {
+            await loadPublicCourses(true)
+            setPublicRefreshToken((current) => current + 1)
+          }}
+        />
       ) : (
         <section className="workspace">
         <aside className="panel sidebar">
@@ -293,26 +324,40 @@ function App() {
             <h2>Темы</h2>
           </div>
 
-          {!currentCourse && (
-            <p className="muted">Выберите курс</p>
-          )}
-
-          {currentCourse && (
-            <div className="courseInfo">
+          {currentCourse ? (
+            <div className="courseContextCard">
+              <span className="contextLabel">Выбранный курс</span>
               <strong>{currentCourse.title}</strong>
               <p>{currentCourse.description}</p>
+              <div className="contextMeta">
+                <span>Опубликованных тем: {currentCourse.themes_count}</span>
+              </div>
             </div>
+          ) : (
+            <p className="muted">Выберите курс для просмотра тем</p>
           )}
 
-          <div className="list">
+          <div className="listSectionHeader">
+            <span>Темы курса</span>
+            <small>{courseDetails?.themes?.length ?? 0}</small>
+          </div>
+
+          {selectedCourseId && courseDetails && (courseDetails.themes ?? []).length === 0 && (
+            <p className="muted">У выбранного курса пока нет опубликованных тем</p>
+          )}
+
+          <div className="themeList">
             {(courseDetails?.themes ?? []).map((theme) => (
               <button
-                className={theme.id === selectedThemeId ? 'listItem active' : 'listItem'}
+                className={theme.id === selectedThemeId ? 'themeListItem active' : 'themeListItem'}
                 key={theme.id}
                 onClick={() => setSelectedThemeId(theme.id)}
               >
-                <span>{theme.title}</span>
-                <small>№ {theme.order_index}</small>
+                <div>
+                  <span>{theme.title}</span>
+                  <small>{theme.description}</small>
+                </div>
+                <em>№ {theme.order_index}</em>
               </button>
             ))}
           </div>
@@ -345,6 +390,36 @@ function App() {
 
           {contentLoading && (
             <div className="loadingBox">Загрузка материалов...</div>
+          )}
+
+          {!contentLoading && !themeFull && (
+            <div className="emptyState">
+              {!selectedCourseId ? (
+                <>
+                  <h3>Выберите курс</h3>
+                  <p>Для просмотра материалов выберите опубликованный курс в левом списке.</p>
+                </>
+              ) : courseDetails && (courseDetails.themes ?? []).length === 0 ? (
+                <>
+                  <h3>В курсе пока нет опубликованных тем</h3>
+                  <p>
+                    Материалы появятся после публикации темы и одобрения упражнений в экспертной части.
+                  </p>
+                </>
+              ) : !selectedThemeId ? (
+                <>
+                  <h3>Выберите тему</h3>
+                  <p>Для просмотра учебника или рабочей тетради выберите тему курса.</p>
+                </>
+              ) : (
+                <>
+                  <h3>Материалы темы пока недоступны</h3>
+                  <p>
+                    Для выбранной темы пока нет опубликованных материалов в режиме учебника или рабочей тетради.
+                  </p>
+                </>
+              )}
+            </div>
           )}
 
           {!contentLoading && themeFull && (

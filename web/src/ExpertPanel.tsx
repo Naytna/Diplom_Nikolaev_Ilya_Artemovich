@@ -91,7 +91,7 @@ type AuditLog = {
 }
 
 const API_URL = 'http://localhost:18080/api'
-type ExpertTab = 'courses' | 'themes' | 'vocabulary' | 'generation' | 'materials' | 'logs'
+type ExpertTab = 'courses' | 'themes' | 'vocabulary' | 'generation' | 'materials' | 'publication' | 'logs'
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -392,30 +392,6 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     }
   }
 
-  async function publishCourse() {
-    if (!selectedCourseId) {
-      return
-    }
-
-    setError('')
-    setMessage('')
-    setLoading(true)
-
-    try {
-      await api(`/courses/${selectedCourseId}/publish`, {
-        method: 'POST',
-      })
-
-      await loadCourses()
-      await onPublicContentChanged?.()
-      setMessage('Курс опубликован')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось опубликовать курс')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   async function unpublishCourse() {
     if (!selectedCourseId) {
       return
@@ -514,33 +490,6 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
       setMessage('Тема создана')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось создать тему')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function publishTheme() {
-    if (!selectedThemeId) {
-      return
-    }
-
-    setError('')
-    setMessage('')
-    setLoading(true)
-
-    try {
-      await api(`/themes/${selectedThemeId}/publish`, {
-        method: 'POST',
-      })
-
-      if (selectedCourseId) {
-        await loadThemes(selectedCourseId)
-      }
-
-      await onPublicContentChanged?.()
-      setMessage('Тема опубликована')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось опубликовать тему')
     } finally {
       setLoading(false)
     }
@@ -804,6 +753,114 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
   const textbookExercises = previewExercises.filter((exercise) => exercise.target_mode === 'textbook')
   const workbookExercises = previewExercises.filter((exercise) => exercise.target_mode === 'workbook')
 
+  const approvedTextbookExercises = textbookExercises.filter((exercise) => exercise.status === 'approved')
+  const approvedWorkbookExercises = workbookExercises.filter((exercise) => exercise.status === 'approved')
+
+  const isCoursePublished = selectedCourse?.status === 'published'
+  const isThemePublished = selectedTheme?.status === 'published'
+  const hasVocabulary = vocabulary.length > 0
+  const hasApprovedTextbook = approvedTextbookExercises.length > 0
+  const hasApprovedWorkbook = approvedWorkbookExercises.length > 0
+
+  const isPackagePrepared = Boolean(
+    selectedCourse &&
+      selectedTheme &&
+      hasVocabulary &&
+      hasApprovedTextbook &&
+      hasApprovedWorkbook,
+  )
+
+  const isPackagePublic = Boolean(isPackagePrepared && isCoursePublished && isThemePublished)
+
+  const publicationChecks = [
+    {
+      label: 'Курс выбран',
+      ok: Boolean(selectedCourse),
+      hint: selectedCourse ? selectedCourse.title : 'Выберите курс в разделе “Курсы”',
+    },
+    {
+      label: 'Тема выбрана',
+      ok: Boolean(selectedTheme),
+      hint: selectedTheme ? selectedTheme.title : 'Выберите тему в разделе “Темы”',
+    },
+    {
+      label: 'Словарь темы заполнен',
+      ok: hasVocabulary,
+      hint: hasVocabulary ? `Добавлено слов: ${vocabulary.length}` : 'Добавьте слова в разделе “Словарь”',
+    },
+    {
+      label: 'Задания учебника одобрены',
+      ok: hasApprovedTextbook,
+      hint: hasApprovedTextbook
+        ? `Одобрено заданий учебника: ${approvedTextbookExercises.length}`
+        : 'Одобрите хотя бы одно задание учебника',
+    },
+    {
+      label: 'Задания рабочей тетради одобрены',
+      ok: hasApprovedWorkbook,
+      hint: hasApprovedWorkbook
+        ? `Одобрено заданий рабочей тетради: ${approvedWorkbookExercises.length}`
+        : 'Одобрите хотя бы одно задание рабочей тетради',
+    },
+    {
+      label: 'Курс опубликован',
+      ok: isCoursePublished,
+      hint: isCoursePublished ? 'Курс доступен в публичной части' : 'Курс будет опубликован на итоговом этапе',
+    },
+    {
+      label: 'Тема опубликована',
+      ok: isThemePublished,
+      hint: isThemePublished ? 'Тема доступна в публичной части' : 'Тема будет опубликована на итоговом этапе',
+    },
+  ]
+
+  async function publishLearningPackage() {
+    if (!selectedCourseId || !selectedThemeId) {
+      setError('Выберите курс и тему перед публикацией')
+      return
+    }
+
+    if (!isPackagePrepared) {
+      setError('Учебный комплект ещё не готов к публикации')
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading(true)
+
+    try {
+      if (!isCoursePublished) {
+        await api(`/courses/${selectedCourseId}/publish`, {
+          method: 'POST',
+        })
+      }
+
+      if (!isThemePublished) {
+        await api(`/themes/${selectedThemeId}/publish`, {
+          method: 'POST',
+        })
+      }
+
+      await loadCourses()
+
+      if (selectedCourseId) {
+        await loadThemes(selectedCourseId)
+      }
+
+      if (selectedThemeId) {
+        await loadThemeData(selectedThemeId)
+      }
+
+      await onPublicContentChanged?.()
+      setMessage('Учебный комплект опубликован')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось опубликовать учебный комплект')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const sortedRuns = [...runs].sort((a, b) => b.id - a.id)
 
   const getThemeLabel = (themeId: number) => {
@@ -866,7 +923,13 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
           onClick={() => setActiveTab('materials')}
         >
           Материалы
-        </button>        
+        </button> 
+        <button
+          className={activeTab === 'publication' ? 'expertTab active' : 'expertTab'}
+          onClick={() => setActiveTab('publication')}
+        >
+          Публикация
+        </button>       
         <button
           className={activeTab === 'logs' ? 'expertTab active' : 'expertTab'}
           onClick={() => setActiveTab('logs')}
@@ -948,15 +1011,12 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
                         Перейти к темам выбранного курса
                       </button>
 
-                      {selectedCourse.status === 'published' ? (
-                        <button className="secondaryButton fullWidth" onClick={unpublishCourse}>
-                          Снять курс с публикации
-                        </button>
-                      ) : (
-                        <button className="secondaryButton fullWidth" onClick={publishCourse}>
-                          Опубликовать выбранный курс
-                        </button>
-                      )}
+                      <button
+                        className="secondaryButton fullWidth"
+                        onClick={() => setActiveTab('publication')}
+                      >
+                        Проверить готовность курса
+                      </button>
                     </div>
                   )}
               </div>
@@ -1031,15 +1091,12 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
                         Перейти к словарю выбранной темы
                       </button>
 
-                      {selectedTheme.status === 'published' ? (
-                        <button className="secondaryButton fullWidth" onClick={unpublishTheme}>
-                          Снять тему с публикации
-                        </button>
-                      ) : (
-                        <button className="secondaryButton fullWidth" onClick={publishTheme}>
-                          Опубликовать выбранную тему
-                        </button>
-                      )}
+                      <button
+                        className="secondaryButton fullWidth"
+                        onClick={() => setActiveTab('publication')}
+                      >
+                        Проверить готовность темы
+                      </button>
                     </div>
                   )}
               </div>
@@ -1237,8 +1294,8 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
               </div>
 
               {selectedTheme && (
-                <button className="primaryButton" onClick={publishTheme}>
-                  Опубликовать тему
+                <button className="primaryButton" onClick={() => setActiveTab('publication')}>
+                  Перейти к публикации
                 </button>
               )}
             </div>
@@ -1352,6 +1409,65 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
                 </article>
               </div>
             )}
+          </section>
+        )}
+
+        {activeTab === 'publication' && (
+          <section className="expertCard expertSingleScreen publicationScreen">
+            <div className="screenHeader">
+              <div>
+                <h3>Итоговая публикация</h3>
+                <p>
+                  Контроль готовности курса, темы, словаря и одобренных материалов перед выводом в публичную часть.
+                </p>
+              </div>
+
+              <strong className={isPackagePublic ? 'publicationBadge ready' : isPackagePrepared ? 'publicationBadge prepared' : 'publicationBadge blocked'}>
+                {isPackagePublic ? 'Опубликовано' : isPackagePrepared ? 'Готово к публикации' : 'Не готово'}
+              </strong>
+            </div>
+
+            <div className="publicationChecklist">
+              {publicationChecks.map((item) => (
+                <article className={item.ok ? 'publicationCheck ok' : 'publicationCheck warning'} key={item.label}>
+                  <span>{item.ok ? '✓' : '!'}</span>
+                  <div>
+                    <strong>{item.label}</strong>
+                    <p>{item.hint}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className={isPackagePublic ? 'publicationResult ready' : isPackagePrepared ? 'publicationResult prepared' : 'publicationResult blocked'}>
+              {isPackagePublic
+                ? 'Учебный комплект опубликован и должен отображаться в публичной части.'
+                : isPackagePrepared
+                  ? 'Учебный комплект подготовлен. Можно выполнить итоговую публикацию.'
+                  : 'Учебный комплект пока не готов. Исправьте пункты, отмеченные предупреждением.'}
+            </div>
+
+            <div className="publicationActions">
+              <button
+                className="primaryButton"
+                onClick={publishLearningPackage}
+                disabled={!isPackagePrepared || isPackagePublic}
+              >
+                {isPackagePublic ? 'Учебный комплект опубликован' : 'Опубликовать учебный комплект'}
+              </button>
+
+              {selectedTheme && isThemePublished && (
+                <button className="secondaryButton" onClick={unpublishTheme}>
+                  Снять тему с публикации
+                </button>
+              )}
+
+              {selectedCourse && isCoursePublished && (
+                <button className="secondaryButton" onClick={unpublishCourse}>
+                  Снять курс с публикации
+                </button>
+              )}
+            </div>
           </section>
         )}
 
