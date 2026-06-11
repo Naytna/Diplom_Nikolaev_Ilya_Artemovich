@@ -1234,3 +1234,131 @@ h3 {
   font-style: normal;
   font-weight: 800;
 }
+
+.publicationScreen {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.publicationBadge {
+  padding: 8px 12px;
+  border: 1px solid #2f2f2f;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.publicationBadge.ready {
+  border-color: #267a45;
+  background: #071a0d;
+  color: #8cffaa;
+}
+
+.publicationBadge.prepared {
+  border-color: #245a7a;
+  background: #07131c;
+  color: #38a8e8;
+}
+
+.publicationBadge.blocked {
+  border-color: #7a5a26;
+  background: #1a1207;
+  color: #ffd27a;
+}
+
+.publicationChecklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.publicationCheck {
+  padding: 14px;
+  border: 1px solid #2f2f2f;
+  background: #080808;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.publicationCheck.ok {
+  border-color: #234f34;
+}
+
+.publicationCheck.warning {
+  border-color: #5a4423;
+}
+
+.publicationCheck > span {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #333333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+}
+
+.publicationCheck.ok > span {
+  border-color: #267a45;
+  color: #8cffaa;
+}
+
+.publicationCheck.warning > span {
+  border-color: #7a5a26;
+  color: #ffd27a;
+}
+
+.publicationCheck strong {
+  display: block;
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.publicationCheck p {
+  margin: 5px 0 0;
+  color: #9ffcff;
+  line-height: 1.35;
+}
+
+.publicationResult {
+  padding: 14px;
+  border: 1px solid #2f2f2f;
+  font-weight: 700;
+}
+
+.publicationResult.ready {
+  border-color: #267a45;
+  background: #071a0d;
+  color: #8cffaa;
+}
+
+.publicationResult.prepared {
+  border-color: #245a7a;
+  background: #07131c;
+  color: #38a8e8;
+}
+
+.publicationResult.blocked {
+  border-color: #7a5a26;
+  background: #1a1207;
+  color: #ffd27a;
+}
+
+.publicationActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.publicationActions button {
+  min-width: 240px;
+}
+
+@media (max-width: 900px) {
+  .publicationChecklist {
+    grid-template-columns: 1fr;
+  }
+}
