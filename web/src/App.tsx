@@ -98,9 +98,12 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [contentLoading, setContentLoading] = useState(false)
   const [error, setError] = useState('')
+  const [publicRefreshToken, setPublicRefreshToken] = useState(0)
 
-  const loadPublicCourses = useCallback(() => {
-  setLoading(true)
+  const loadPublicCourses = useCallback((silent = false) => {
+    if (!silent) {
+      setLoading(true)
+    }
 
     return fetch(`${API_URL}/public/courses`)
       .then((response) => {
@@ -133,7 +136,9 @@ function App() {
         setError(err.message)
       })
       .finally(() => {
-        setLoading(false)
+        if (!silent) {
+          setLoading(false)
+        }
       })
   }, [])
 
@@ -171,7 +176,13 @@ function App() {
         setCourseDetails(safeData)
 
         if (safeData.themes.length > 0) {
-          setSelectedThemeId(safeData.themes[0].id)
+          setSelectedThemeId((current) => {
+            if (current && safeData.themes.some((theme) => theme.id === current)) {
+              return current
+            }
+
+            return safeData.themes[0].id
+          })
         } else {
           setSelectedThemeId(null)
           setThemeFull(null)
@@ -183,10 +194,16 @@ function App() {
       .finally(() => {
         setContentLoading(false)
       })
-  }, [selectedCourseId])
+  }, [selectedCourseId, publicRefreshToken])
 
   useEffect(() => {
     if (!selectedThemeId) {
+      setThemeFull(null)
+      return
+    }
+
+    if (courseDetails && !courseDetails.themes.some((theme) => theme.id === selectedThemeId)) {
+      setThemeFull(null)
       return
     }
 
@@ -195,12 +212,21 @@ function App() {
 
     fetch(`${API_URL}/public/themes/${selectedThemeId}/${mode}-full`)
       .then((response) => {
+        if (response.status === 404) {
+          setThemeFull(null)
+          return null
+        }
+
         if (!response.ok) {
           throw new Error('Не удалось загрузить материалы темы')
         }
         return response.json()
       })
-      .then((data: ThemeFull) => {
+      .then((data: ThemeFull | null) => {
+        if (!data) {
+          return
+        }
+
         setThemeFull(normalizeThemeFull(data))
       })
       .catch((err: Error) => {
@@ -209,7 +235,7 @@ function App() {
       .finally(() => {
         setContentLoading(false)
       })
-  }, [selectedThemeId, mode])
+  }, [selectedThemeId, mode, publicRefreshToken])
 
   const safeCourses = useMemo(() => {
     return Array.isArray(courses) ? courses : []
@@ -262,7 +288,12 @@ function App() {
       </header>
 
       {section === 'expert' ? (
-        <ExpertPanel onPublicContentChanged={loadPublicCourses} />
+        <ExpertPanel
+          onPublicContentChanged={async () => {
+            await loadPublicCourses(true)
+            setPublicRefreshToken((current) => current + 1)
+          }}
+        />
       ) : (
         <section className="workspace">
         <aside className="panel sidebar">
