@@ -771,6 +771,8 @@ h3 {
   padding: 16px;
   background: #080808;
   border: 1px solid #3a3a3a;
+  max-height: 470px;
+  overflow: hidden;
 }
 
 .rejectionHeader {
@@ -803,6 +805,9 @@ h3 {
 }
 
 .rejectionList {
+  max-height: 320px;
+  overflow: auto;
+  padding-right: 6px;
   display: grid;
   gap: 10px;
 }

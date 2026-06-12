@@ -99,55 +99,47 @@ func (s *GenerationService) Generate(themeID int64, userID int64) (GenerationRes
 	if err != nil {
 		_, _ = s.saveRun(themeID, userID, result, err.Error(), startedAt)
 		return result, err
-	}
-	result.FoundExamples = len(candidates)
+			}
+			result.FoundExamples = len(candidates)
 
-	themeSet := make(map[int64]bool)
-	for _, id := range themeWords {
-		themeSet[id] = true
-	}
-
-	err = s.db.Transaction(func(tx *gorm.DB) error {
-		for _, example := range candidates {
-			segments, err := s.loadExampleSegments(tx, example.ID)
-			if err != nil {
-				return err
+			themeSet := make(map[int64]bool)
+			for _, id := range themeWords {
+				themeSet[id] = true
 			}
 
-			allowed, reasonCode, reasonText := s.validateExample(example.Text, segments, themeSet)
-			if !allowed {
-				result.RejectedExamples++
-				rejections = append(rejections, generationRejection{
-					ThemeID:      themeID,
-					LitExampleID: example.ID,
-					ExampleText:  example.Text,
-					ReasonCode:   reasonCode,
-					ReasonText:   reasonText,
-				})
-				continue
-			}
+			err = s.db.Transaction(func(tx *gorm.DB) error {
+				for _, example := range candidates {
+				used, err := s.exampleAlreadyUsed(tx, themeID, example.ID)
+				if err != nil {
+						return err
+				}
+				if used {
+						continue
+				}
 
-			used, err := s.exampleAlreadyUsed(tx, themeID, example.ID)
-			if err != nil {
-				return err
-			}
-			if used {
-				result.RejectedExamples++
-				rejections = append(rejections, generationRejection{
-					ThemeID:      themeID,
-					LitExampleID: example.ID,
-					ExampleText:  example.Text,
-					ReasonCode:   "already_used",
-					ReasonText:   "Пример уже использовался для генерации упражнений в выбранной теме",
-				})
-				continue
-			}
+				segments, err := s.loadExampleSegments(tx, example.ID)
+				if err != nil {
+						return err
+				}
 
-			created, err := s.createExercisePair(tx, themeID, example, segments)
-			if err != nil {
-				return err
-			}
-			result.GeneratedExercises += created
+				allowed, reasonCode, reasonText := s.validateExample(example.Text, segments, themeSet)
+				if !allowed {
+						result.RejectedExamples++
+						rejections = append(rejections, generationRejection{
+								ThemeID:      themeID,
+								LitExampleID: example.ID,
+								ExampleText:  example.Text,
+								ReasonCode:   reasonCode,
+								ReasonText:   reasonText,
+						})
+						continue
+				}
+
+				created, err := s.createExercisePair(tx, themeID, example, segments)
+				if err != nil {
+						return err
+				}
+				result.GeneratedExercises += created
 		}
 		return nil
 	})
