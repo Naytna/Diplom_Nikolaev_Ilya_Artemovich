@@ -156,11 +156,27 @@ function getEntityLabel(entityType: string, entityId: number) {
 }
 
 function getRejectionReasonLabel(reasonCode: string) {
-  if (reasonCode === 'incomplete_segmentation') return 'Неполная сегментация'
-  if (reasonCode === 'outside_theme_vocabulary') return 'Слова вне словаря темы'
+  if (reasonCode === 'incomplete_segmentation') return 'Неполная разметка'
+  if (reasonCode === 'outside_theme_vocabulary') return 'Не входит в словарь темы'
   if (reasonCode === 'not_enough_segments') return 'Недостаточно сегментов'
 
   return reasonCode
+}
+
+function getRejectionReasonDescription(reasonCode: string) {
+  if (reasonCode === 'outside_theme_vocabulary') {
+    return 'Пример найден как кандидат, но исключён, потому что содержит лексику вне текущей темы.'
+  }
+
+  if (reasonCode === 'incomplete_segmentation') {
+    return 'В тексте есть значимые слова, для которых не задан жестовый сегмент.'
+  }
+
+  if (reasonCode === 'not_enough_segments') {
+    return 'В примере недостаточно жестовых сегментов для построения упражнения.'
+  }
+
+  return 'Пример не был включён в генерацию после проверки качества.'
 }
 
 function formatDateTime(value?: string) {
@@ -672,7 +688,7 @@ export default function ExpertPanel({
       }
 
       setMessage(
-        `Генерация завершена: найдено ${result.found_examples}, создано ${result.generated_exercises}, отклонено ${result.rejected_examples}, пропущено ${result.skipped_examples ?? 0}`,
+        `Генерация завершена: найдено кандидатов ${result.found_examples}, создано упражнений ${result.generated_exercises}, отфильтровано ${result.rejected_examples}, пропущено как уже использованные ${result.skipped_examples ?? 0}`,
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось запустить генерацию')
@@ -1190,7 +1206,7 @@ export default function ExpertPanel({
             {lastGenerationResult && (
               <div className="generationSummary">
                 <div>
-                  <span>Найдено примеров</span>
+                  <span>Найдено кандидатов</span>
                   <strong>{lastGenerationResult.found_examples}</strong>
                 </div>
                 <div>
@@ -1198,11 +1214,11 @@ export default function ExpertPanel({
                   <strong>{lastGenerationResult.generated_exercises}</strong>
                 </div>
                 <div>
-                  <span>Отклонено примеров</span>
+                  <span>Отфильтровано</span>
                   <strong>{lastGenerationResult.rejected_examples}</strong>
                 </div>
                 <div>
-                  <span>Пропущено примеров</span>
+                  <span>Пропущено как уже использованные</span>
                   <strong>{lastGenerationResult.skipped_examples ?? 0}</strong>
                 </div>
                 <div>
@@ -1216,8 +1232,8 @@ export default function ExpertPanel({
               <section className="rejectionBlock">
                 <div className="rejectionHeader">
                   <div>
-                    <h4>Отклонённые примеры</h4>
-                    <p>Система показывает, какие корпусные примеры не были использованы при генерации и по какой причине.</p>
+                    <h4>Причины фильтрации</h4>
+                    <p>Система показывает, какие найденные кандидаты не вошли в генерацию и были исключены на этапе контроля качества.</p>
                   </div>
                   <span>{generationRejections.length}</span>
                 </div>
@@ -1230,6 +1246,7 @@ export default function ExpertPanel({
                         <small>Пример #{item.lit_example_id}</small>
                       </div>
                       <strong>{item.example_text}</strong>
+                      <p>{getRejectionReasonDescription(item.reason_code)}</p>
                       <p>{item.reason_text}</p>
                     </article>
                   ))}
@@ -1503,7 +1520,7 @@ export default function ExpertPanel({
                     <span>Тема: {getThemeLabel(run.theme_id)}</span>
                     <span>{formatDateTime(run.created_at)}</span>
                     <span>
-                      {getStatusLabel(run.status)}: найдено {run.found_examples}, создано {run.generated_exercises}, отклонено {run.rejected_examples}, пропущено {run.skipped_examples ?? 0}
+                      {getStatusLabel(run.status)}: найдено кандидатов {run.found_examples}, создано упражнений {run.generated_exercises}, отфильтровано {run.rejected_examples}, пропущено как уже использованные {run.skipped_examples ?? 0}
                     </span>
                   </div>
                 ))}
