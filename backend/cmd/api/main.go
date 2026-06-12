@@ -17,6 +17,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err := database.EnsureDemoAuthData(db); err != nil {
+		log.Fatal(err)
+	}
 
 	app := fiber.New()
 
@@ -34,10 +37,10 @@ func main() {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "http://localhost:5173",
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders: "Origin, Content-Type, Accept",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
-	httpserver.RegisterRoutes(app, db)
+	httpserver.RegisterRoutes(app, db, cfg)
 
 	if err := app.Listen(":" + cfg.AppPort); err != nil {
 		log.Fatal(err)

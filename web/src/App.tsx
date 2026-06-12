@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import ExpertPanel from './ExpertPanel'
+import { api, publicApi, type AuthUser } from './api'
 
 type Course = {
   id: number
@@ -73,7 +74,19 @@ type ThemeFull = {
   exercises: Exercise[]
 }
 
-const API_URL = 'http://localhost:18080/api'
+type AuthState = {
+  token: string | null
+  user: AuthUser | null
+}
+
+type LoginResponse = {
+  token: string
+  user: AuthUser
+}
+
+type ViewMode = 'public' | 'expert' | 'login'
+
+const STORAGE_KEY = 'rsl-demo-auth'
 
 function normalizeThemeFull(data: ThemeFull): ThemeFull {
   return {
@@ -86,8 +99,138 @@ function normalizeThemeFull(data: ThemeFull): ThemeFull {
   }
 }
 
+function isExpert(user: AuthUser | null) {
+  return user?.role === 'expert'
+}
+
+function isStudent(user: AuthUser | null) {
+  return user?.role === 'student'
+}
+
+function saveAuthState(state: AuthState) {
+  if (!state.token || !state.user) {
+    localStorage.removeItem(STORAGE_KEY)
+    return
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+}
+
+function loadStoredAuthState(): AuthState {
+  const raw = localStorage.getItem(STORAGE_KEY)
+  if (!raw) {
+    return { token: null, user: null }
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as AuthState
+    if (!parsed.token || !parsed.user) {
+      return { token: null, user: null }
+    }
+
+    return parsed
+  } catch {
+    return { token: null, user: null }
+  }
+}
+
+function LoginScreen({
+  loading,
+  error,
+  onBack,
+  onSubmit,
+}: {
+  loading: boolean
+  error: string
+  onBack: () => void
+  onSubmit: (username: string, password: string) => Promise<void>
+}) {
+  const [username, setUsername] = useState('expert')
+  const [password, setPassword] = useState('expert123')
+
+  const applyDemoCredentials = (nextUsername: string, nextPassword: string) => {
+    setUsername(nextUsername)
+    setPassword(nextPassword)
+  }
+
+  return (
+    <section className="loginScreen">
+      <div className="loginPanel">
+        <div className="eyebrow">Демонстрационная авторизация</div>
+        <h2>Вход в модуль</h2>
+        <p className="loginLead">
+          Эксперт работает с генерацией, публикацией и журналом. Студент видит только опубликованные материалы.
+        </p>
+
+        <div className="demoAccounts">
+          <button
+            className="demoAccountCard"
+            type="button"
+            onClick={() => applyDemoCredentials('expert', 'expert123')}
+          >
+            <strong>Эксперт</strong>
+            <span>expert / expert123</span>
+          </button>
+          <button
+            className="demoAccountCard"
+            type="button"
+            onClick={() => applyDemoCredentials('student', 'student123')}
+          >
+            <strong>Студент</strong>
+            <span>student / student123</span>
+          </button>
+        </div>
+
+        <form
+          className="loginForm"
+          onSubmit={async (event) => {
+            event.preventDefault()
+            await onSubmit(username, password)
+          }}
+        >
+          <label>
+            <span>Username</span>
+            <input
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="expert или student"
+            />
+          </label>
+
+          <label>
+            <span>Password</span>
+            <input
+              autoComplete="current-password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Введите пароль"
+            />
+          </label>
+
+          {error && <div className="errorBox">{error}</div>}
+
+          <div className="loginActions">
+            <button className="secondaryButton" type="button" onClick={onBack}>
+              Вернуться к публичной части
+            </button>
+            <button className="primaryButton" type="submit" disabled={loading}>
+              {loading ? 'Выполняется вход...' : 'Войти'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  )
+}
+
 function App() {
-  const [section, setSection] = useState<'public' | 'expert'>('public')
+  const [viewMode, setViewMode] = useState<ViewMode>('public')
+  const [authState, setAuthState] = useState<AuthState>({ token: null, user: null })
+  const [authLoading, setAuthLoading] = useState(true)
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [loginError, setLoginError] = useState('')
   const [courses, setCourses] = useState<Course[]>([])
   const [courseDetails, setCourseDetails] = useState<CourseDetails | null>(null)
   const [themeFull, setThemeFull] = useState<ThemeFull | null>(null)
@@ -100,22 +243,55 @@ function App() {
   const [error, setError] = useState('')
   const [publicRefreshToken, setPublicRefreshToken] = useState(0)
 
+  const clearAuth = useCallback(() => {
+    const nextState = { token: null, user: null }
+    setAuthState(nextState)
+    saveAuthState(nextState)
+    setViewMode('public')
+  }, [])
+
+  const applyAuth = useCallback((token: string, user: AuthUser) => {
+    const nextState = { token, user }
+    setAuthState(nextState)
+    saveAuthState(nextState)
+    setLoginError('')
+    setViewMode(user.role === 'expert' ? 'expert' : 'public')
+  }, [])
+
+  useEffect(() => {
+    const stored = loadStoredAuthState()
+
+    if (!stored.token) {
+      setAuthLoading(false)
+      return
+    }
+
+    api<AuthUser>('/auth/me', {
+      authToken: stored.token,
+      onUnauthorized: clearAuth,
+    })
+      .then((user) => {
+        applyAuth(stored.token!, user)
+      })
+      .catch(() => {
+        clearAuth()
+      })
+      .finally(() => {
+        setAuthLoading(false)
+      })
+  }, [applyAuth, clearAuth])
+
   const loadPublicCourses = useCallback((silent = false) => {
     if (!silent) {
       setLoading(true)
     }
 
-    return fetch(`${API_URL}/public/courses`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Не удалось загрузить список курсов')
-        }
-        return response.json()
-      })
+    return publicApi<Course[]>('/public/courses')
       .then((data: Course[] | null) => {
         const safeData = Array.isArray(data) ? data : []
 
         setCourses(safeData)
+        setError('')
 
         if (safeData.length > 0) {
           setSelectedCourseId((current) => {
@@ -153,13 +329,7 @@ function App() {
 
     setContentLoading(true)
 
-    fetch(`${API_URL}/public/courses/${selectedCourseId}`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Не удалось загрузить курс')
-        }
-        return response.json()
-      })
+    publicApi<CourseDetails>(`/public/courses/${selectedCourseId}`)
       .then((data: CourseDetails | null) => {
         if (!data) {
           setCourseDetails(null)
@@ -174,6 +344,7 @@ function App() {
         }
 
         setCourseDetails(safeData)
+        setError('')
 
         if (safeData.themes.length > 0) {
           setSelectedThemeId((current) => {
@@ -210,32 +381,28 @@ function App() {
     setContentLoading(true)
     setRevealed({})
 
-    fetch(`${API_URL}/public/themes/${selectedThemeId}/${mode}-full`)
-      .then((response) => {
-        if (response.status === 404) {
-          setThemeFull(null)
-          return null
-        }
-
-        if (!response.ok) {
-          throw new Error('Не удалось загрузить материалы темы')
-        }
-        return response.json()
-      })
+    publicApi<ThemeFull>(`/public/themes/${selectedThemeId}/${mode}-full`)
       .then((data: ThemeFull | null) => {
         if (!data) {
+          setThemeFull(null)
           return
         }
 
         setThemeFull(normalizeThemeFull(data))
+        setError('')
       })
       .catch((err: Error) => {
+        if (err.message === 'опубликованная тема не найдена') {
+          setThemeFull(null)
+          return
+        }
+
         setError(err.message)
       })
       .finally(() => {
         setContentLoading(false)
       })
-  }, [selectedThemeId, mode, publicRefreshToken])
+  }, [selectedThemeId, mode, courseDetails, publicRefreshToken])
 
   const safeCourses = useMemo(() => {
     return Array.isArray(courses) ? courses : []
@@ -252,14 +419,43 @@ function App() {
     }))
   }
 
-  if (loading) {
+  const handleLogin = async (username: string, password: string) => {
+    setLoginLoading(true)
+    setLoginError('')
+
+    try {
+      const result = await api<LoginResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      })
+
+      applyAuth(result.token, result.user)
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : 'Не удалось выполнить вход')
+    } finally {
+      setLoginLoading(false)
+    }
+  }
+
+  if (authLoading || loading) {
     return <main className="page">Загрузка модуля...</main>
   }
 
-  if (error) {
+  if (viewMode === 'login') {
     return (
       <main className="page">
-        <div className="errorBox">{error}</div>
+        <header className="topbar">
+          <div>
+            <div className="eyebrow">Модуль генерации учебных заданий</div>
+            <h1>Методические материалы РЖЯ</h1>
+          </div>
+        </header>
+        <LoginScreen
+          error={loginError}
+          loading={loginLoading}
+          onBack={() => setViewMode('public')}
+          onSubmit={handleLogin}
+        />
       </main>
     )
   }
@@ -273,22 +469,53 @@ function App() {
         </div>
         <div className="topActions">
           <button
-            className={section === 'public' ? 'navButton active' : 'navButton'}
-            onClick={() => setSection('public')}
+            className={viewMode === 'public' ? 'navButton active' : 'navButton'}
+            onClick={() => setViewMode('public')}
           >
             Публичная часть
           </button>
-          <button
-            className={section === 'expert' ? 'navButton active' : 'navButton'}
-            onClick={() => setSection('expert')}
-          >
-            Экспертная часть
-          </button>
+
+          {isExpert(authState.user) && (
+            <button
+              className={viewMode === 'expert' ? 'navButton active' : 'navButton'}
+              onClick={() => setViewMode('expert')}
+            >
+              Экспертная часть
+            </button>
+          )}
+
+          {!authState.user && (
+            <button className="navButton" onClick={() => setViewMode('login')}>
+              Войти
+            </button>
+          )}
+        </div>
+
+        <div className="sessionPanel">
+          {authState.user ? (
+            <>
+              <div className="sessionBadge">
+                <strong>{authState.user.full_name}</strong>
+                <span>{authState.user.role === 'expert' ? 'Роль: эксперт' : 'Роль: студент'}</span>
+              </div>
+              <button className="secondaryButton" onClick={clearAuth}>
+                Выйти
+              </button>
+            </>
+          ) : (
+            <div className="sessionBadge guest">
+              <strong>Гость</strong>
+              <span>Доступна только публичная часть</span>
+            </div>
+          )}
         </div>
       </header>
 
-      {section === 'expert' ? (
+      {viewMode === 'expert' && isExpert(authState.user) && authState.token ? (
         <ExpertPanel
+          authToken={authState.token}
+          currentUser={authState.user as AuthUser}
+          onUnauthorized={clearAuth}
           onPublicContentChanged={async () => {
             await loadPublicCourses(true)
             setPublicRefreshToken((current) => current + 1)
@@ -296,219 +523,233 @@ function App() {
         />
       ) : (
         <section className="workspace">
-        <aside className="panel sidebar">
-          <div className="panelHeader">
-            <h2>Курсы</h2>
-          </div>
+          <aside className="panel sidebar">
+            <div className="panelHeader">
+              <h2>Курсы</h2>
+            </div>
 
-          {safeCourses.length === 0 && (
-            <p className="muted">Опубликованные курсы отсутствуют</p>
-          )}
+            <div className="publicIntroCard">
+              <strong>
+                {isStudent(authState.user) ? 'Вы вошли как студент' : 'Публичный просмотр'}
+              </strong>
+              <p>
+                Здесь доступны только опубликованные курсы, темы, словарь, учебник и рабочая тетрадь без функций редактирования.
+              </p>
+            </div>
 
-          <div className="list">
-            {safeCourses.map((course) => (
-              <button
-                className={course.id === selectedCourseId ? 'listItem active' : 'listItem'}
-                key={course.id}
-                onClick={() => setSelectedCourseId(course.id)}
-              >
-                <span>{course.title}</span>
-                <small>Тем: {course.themes_count}</small>
-              </button>
-            ))}
-          </div>
-        </aside>
+            {safeCourses.length === 0 && (
+              <p className="muted">Опубликованные курсы отсутствуют</p>
+            )}
 
-        <aside className="panel sidebar">
-          <div className="panelHeader">
-            <h2>Темы</h2>
-          </div>
+            <div className="list">
+              {safeCourses.map((course) => (
+                <button
+                  className={course.id === selectedCourseId ? 'listItem active' : 'listItem'}
+                  key={course.id}
+                  onClick={() => setSelectedCourseId(course.id)}
+                >
+                  <span>{course.title}</span>
+                  <small>Тем: {course.themes_count}</small>
+                </button>
+              ))}
+            </div>
+          </aside>
 
-          {currentCourse ? (
-            <div className="courseContextCard">
-              <span className="contextLabel">Выбранный курс</span>
-              <strong>{currentCourse.title}</strong>
-              <p>{currentCourse.description}</p>
-              <div className="contextMeta">
-                <span>Опубликованных тем: {currentCourse.themes_count}</span>
+          <aside className="panel sidebar">
+            <div className="panelHeader">
+              <h2>Темы</h2>
+            </div>
+
+            {currentCourse ? (
+              <div className="courseContextCard">
+                <span className="contextLabel">Выбранный курс</span>
+                <strong>{currentCourse.title}</strong>
+                <p>{currentCourse.description}</p>
+                <div className="contextMeta">
+                  <span>Опубликованных тем: {currentCourse.themes_count}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="muted">Выберите курс для просмотра тем</p>
+            )}
+
+            <div className="listSectionHeader">
+              <span>Темы курса</span>
+              <small>{courseDetails?.themes?.length ?? 0}</small>
+            </div>
+
+            {selectedCourseId && courseDetails && (courseDetails.themes ?? []).length === 0 && (
+              <p className="muted">У выбранного курса пока нет опубликованных тем</p>
+            )}
+
+            <div className="themeList">
+              {(courseDetails?.themes ?? []).map((theme) => (
+                <button
+                  className={theme.id === selectedThemeId ? 'themeListItem active' : 'themeListItem'}
+                  key={theme.id}
+                  onClick={() => setSelectedThemeId(theme.id)}
+                >
+                  <div>
+                    <span>{theme.title}</span>
+                    <small>{theme.description}</small>
+                  </div>
+                  <em>№ {theme.order_index}</em>
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <section className="panel content">
+            <div className="contentHeader">
+              <div>
+                <div className="eyebrow">
+                  {themeFull?.theme.course_title ?? 'Учебный комплект'}
+                </div>
+                <h2>{themeFull?.theme.title ?? 'Материалы темы'}</h2>
+              </div>
+
+              <div className="modeSwitch">
+                <button
+                  className={mode === 'textbook' ? 'modeButton active' : 'modeButton'}
+                  onClick={() => setMode('textbook')}
+                >
+                  Учебник
+                </button>
+                <button
+                  className={mode === 'workbook' ? 'modeButton active' : 'modeButton'}
+                  onClick={() => setMode('workbook')}
+                >
+                  Рабочая тетрадь
+                </button>
               </div>
             </div>
-          ) : (
-            <p className="muted">Выберите курс для просмотра тем</p>
-          )}
 
-          <div className="listSectionHeader">
-            <span>Темы курса</span>
-            <small>{courseDetails?.themes?.length ?? 0}</small>
-          </div>
+            {error && <div className="errorBox publicError">{error}</div>}
 
-          {selectedCourseId && courseDetails && (courseDetails.themes ?? []).length === 0 && (
-            <p className="muted">У выбранного курса пока нет опубликованных тем</p>
-          )}
+            {contentLoading && (
+              <div className="loadingBox">Загрузка материалов...</div>
+            )}
 
-          <div className="themeList">
-            {(courseDetails?.themes ?? []).map((theme) => (
-              <button
-                className={theme.id === selectedThemeId ? 'themeListItem active' : 'themeListItem'}
-                key={theme.id}
-                onClick={() => setSelectedThemeId(theme.id)}
-              >
-                <div>
-                  <span>{theme.title}</span>
-                  <small>{theme.description}</small>
-                </div>
-                <em>№ {theme.order_index}</em>
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        <section className="panel content">
-          <div className="contentHeader">
-            <div>
-              <div className="eyebrow">
-                {themeFull?.theme.course_title ?? 'Учебный комплект'}
-              </div>
-              <h2>{themeFull?.theme.title ?? 'Материалы темы'}</h2>
-            </div>
-
-            <div className="modeSwitch">
-              <button
-                className={mode === 'textbook' ? 'modeButton active' : 'modeButton'}
-                onClick={() => setMode('textbook')}
-              >
-                Учебник
-              </button>
-              <button
-                className={mode === 'workbook' ? 'modeButton active' : 'modeButton'}
-                onClick={() => setMode('workbook')}
-              >
-                Рабочая тетрадь
-              </button>
-            </div>
-          </div>
-
-          {contentLoading && (
-            <div className="loadingBox">Загрузка материалов...</div>
-          )}
-
-          {!contentLoading && !themeFull && (
-            <div className="emptyState">
-              {!selectedCourseId ? (
-                <>
-                  <h3>Выберите курс</h3>
-                  <p>Для просмотра материалов выберите опубликованный курс в левом списке.</p>
-                </>
-              ) : courseDetails && (courseDetails.themes ?? []).length === 0 ? (
-                <>
-                  <h3>В курсе пока нет опубликованных тем</h3>
-                  <p>
-                    Материалы появятся после публикации темы и одобрения упражнений в экспертной части.
-                  </p>
-                </>
-              ) : !selectedThemeId ? (
-                <>
-                  <h3>Выберите тему</h3>
-                  <p>Для просмотра учебника или рабочей тетради выберите тему курса.</p>
-                </>
-              ) : (
-                <>
-                  <h3>Материалы темы пока недоступны</h3>
-                  <p>
-                    Для выбранной темы пока нет опубликованных материалов в режиме учебника или рабочей тетради.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-
-          {!contentLoading && themeFull && (
-            <>
-              <section className="section">
-                <div className="sectionHeader">
-                  <h3>Лексикон темы</h3>
-                  <span>{themeFull.vocabulary.length} элементов</span>
-                </div>
-
-                <div className="lexicon">
-                  {themeFull.vocabulary.map((item) => (
-                    <span key={item.id}>{item.display_text}</span>
-                  ))}
-                </div>
-              </section>
-
-              <section className="section">
-                <div className="sectionHeader">
-                  <h3>Словарь темы</h3>
-                </div>
-
-                <div className="dictionary">
-                  {themeFull.vocabulary.map((item) => (
-                    <article className="dictCard" key={item.id}>
-                      <div>
-                        <strong>{item.gesture_name}</strong>
-                        <p>{item.gesture_description}</p>
-                      </div>
-                      <div>
-                        <span>{item.display_text}</span>
-                        <small>{item.concept_name}</small>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <section className="section">
-                <div className="sectionHeader">
-                  <h3>{mode === 'textbook' ? 'Упражнения учебника' : 'Упражнения рабочей тетради'}</h3>
-                  <span>{themeFull.exercises.length} упражнений</span>
-                </div>
-
-                {themeFull.exercises.length === 0 && (
-                  <p className="muted">Для выбранного режима пока нет опубликованных упражнений</p>
+            {!contentLoading && !themeFull && (
+              <div className="emptyState">
+                {!selectedCourseId ? (
+                  <>
+                    <h3>Выберите курс</h3>
+                    <p>Для просмотра материалов выберите опубликованный курс в левом списке.</p>
+                  </>
+                ) : courseDetails && (courseDetails.themes ?? []).length === 0 ? (
+                  <>
+                    <h3>В курсе пока нет опубликованных тем</h3>
+                    <p>
+                      Материалы появятся после публикации темы и одобрения упражнений в экспертной части.
+                    </p>
+                  </>
+                ) : !selectedThemeId ? (
+                  <>
+                    <h3>Выберите тему</h3>
+                    <p>Для просмотра учебника или рабочей тетради выберите тему курса.</p>
+                  </>
+                ) : (
+                  <>
+                    <h3>Материалы темы пока недоступны</h3>
+                    <p>
+                      Для выбранной темы пока нет опубликованных материалов в режиме учебника или рабочей тетради.
+                    </p>
+                  </>
                 )}
+              </div>
+            )}
 
-                <div className="exercises">
-                  {themeFull.exercises.map((exercise, index) => {
-                    const showAnswer = mode === 'textbook' || revealed[exercise.id]
+            {!contentLoading && themeFull && (
+              <>
+                <section className="section">
+                  <div className="sectionHeader">
+                    <h3>Лексикон темы</h3>
+                    <span>{themeFull.vocabulary.length} элементов</span>
+                  </div>
 
-                    return (
-                      <article className="exerciseCard" key={exercise.id}>
-                        <div className="exerciseTop">
-                          <span>Упражнение {index + 1}</span>
-                          <small>{exercise.status}</small>
+                  <div className="lexicon">
+                    {themeFull.vocabulary.map((item) => (
+                      <span key={item.id}>{item.display_text}</span>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="section">
+                  <div className="sectionHeader">
+                    <h3>Словарь темы</h3>
+                  </div>
+
+                  <div className="dictionary">
+                    {themeFull.vocabulary.map((item) => (
+                      <article className="dictCard" key={item.id}>
+                        <div>
+                          <strong>{item.gesture_name}</strong>
+                          <p>{item.gesture_description}</p>
                         </div>
-
-                        <p className="phrase">{exercise.phrase}</p>
-
-                        {mode === 'workbook' && (
-                          <button
-                            className="answerButton"
-                            onClick={() => toggleAnswer(exercise.id)}
-                          >
-                            {showAnswer ? 'Скрыть ответ' : 'Показать ответ'}
-                          </button>
-                        )}
-
-                        {showAnswer && (
-                          <div className="segments">
-                            {exercise.segments.map((segment) => (
-                              <div className="segment" key={segment.id}>
-                                <span>{segment.position_index}</span>
-                                <strong>{segment.gesture_name}</strong>
-                                <small>{segment.word_text}</small>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <div>
+                          <span>{item.display_text}</span>
+                          <small>{item.concept_name}</small>
+                        </div>
+                        <div className="mediaPlaceholder">
+                          Медиаматериал будет доступен после интеграции с основной платформой
+                        </div>
                       </article>
-                    )
-                  })}
-                </div>
-              </section>
-            </>
-          )}
-        </section>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="section">
+                  <div className="sectionHeader">
+                    <h3>{mode === 'textbook' ? 'Упражнения учебника' : 'Упражнения рабочей тетради'}</h3>
+                    <span>{themeFull.exercises.length} упражнений</span>
+                  </div>
+
+                  {themeFull.exercises.length === 0 && (
+                    <p className="muted">Для выбранного режима пока нет опубликованных упражнений</p>
+                  )}
+
+                  <div className="exercises">
+                    {themeFull.exercises.map((exercise, index) => {
+                      const showAnswer = mode === 'textbook' || revealed[exercise.id]
+
+                      return (
+                        <article className="exerciseCard" key={exercise.id}>
+                          <div className="exerciseTop">
+                            <span>Упражнение {index + 1}</span>
+                            <small>{exercise.status}</small>
+                          </div>
+
+                          <p className="phrase">{exercise.phrase}</p>
+
+                          {mode === 'workbook' && (
+                            <button
+                              className="answerButton"
+                              onClick={() => toggleAnswer(exercise.id)}
+                            >
+                              {showAnswer ? 'Скрыть ответ' : 'Показать ответ'}
+                            </button>
+                          )}
+
+                          {showAnswer && (
+                            <div className="segments">
+                              {exercise.segments.map((segment) => (
+                                <div className="segment" key={segment.id}>
+                                  <span>{segment.position_index}</span>
+                                  <strong>{segment.gesture_name}</strong>
+                                  <small>{segment.word_text}</small>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </article>
+                      )
+                    })}
+                  </div>
+                </section>
+              </>
+            )}
+          </section>
         </section>
       )}
     </main>

@@ -40,31 +40,31 @@ type sourceSegment struct {
 }
 
 var ignoredCoverageWords = map[string]bool{
-	"в":     true,
-	"во":    true,
-	"на":    true,
-	"у":     true,
-	"и":     true,
-	"а":     true,
-	"но":    true,
-	"по":    true,
-	"для":   true,
-	"из":    true,
-	"к":     true,
-	"ко":    true,
-	"с":     true,
-	"со":    true,
-	"о":     true,
-	"об":    true,
-	"от":    true,
-	"до":    true,
-	"же":    true,
-	"ли":    true,
-	"есть":  true,
-	"был":   true,
-	"была":  true,
-	"было":  true,
-	"были":  true,
+	"в":    true,
+	"во":   true,
+	"на":   true,
+	"у":    true,
+	"и":    true,
+	"а":    true,
+	"но":   true,
+	"по":   true,
+	"для":  true,
+	"из":   true,
+	"к":    true,
+	"ко":   true,
+	"с":    true,
+	"со":   true,
+	"о":    true,
+	"об":   true,
+	"от":   true,
+	"до":   true,
+	"же":   true,
+	"ли":   true,
+	"есть": true,
+	"был":  true,
+	"была": true,
+	"было": true,
+	"были": true,
 }
 
 type generationRejection struct {
@@ -99,47 +99,47 @@ func (s *GenerationService) Generate(themeID int64, userID int64) (GenerationRes
 	if err != nil {
 		_, _ = s.saveRun(themeID, userID, result, err.Error(), startedAt)
 		return result, err
+	}
+	result.FoundExamples = len(candidates)
+
+	themeSet := make(map[int64]bool)
+	for _, id := range themeWords {
+		themeSet[id] = true
+	}
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		for _, example := range candidates {
+			used, err := s.exampleAlreadyUsed(tx, themeID, example.ID)
+			if err != nil {
+				return err
 			}
-			result.FoundExamples = len(candidates)
-
-			themeSet := make(map[int64]bool)
-			for _, id := range themeWords {
-				themeSet[id] = true
+			if used {
+				continue
 			}
 
-			err = s.db.Transaction(func(tx *gorm.DB) error {
-				for _, example := range candidates {
-				used, err := s.exampleAlreadyUsed(tx, themeID, example.ID)
-				if err != nil {
-						return err
-				}
-				if used {
-						continue
-				}
+			segments, err := s.loadExampleSegments(tx, example.ID)
+			if err != nil {
+				return err
+			}
 
-				segments, err := s.loadExampleSegments(tx, example.ID)
-				if err != nil {
-						return err
-				}
+			allowed, reasonCode, reasonText := s.validateExample(example.Text, segments, themeSet)
+			if !allowed {
+				result.RejectedExamples++
+				rejections = append(rejections, generationRejection{
+					ThemeID:      themeID,
+					LitExampleID: example.ID,
+					ExampleText:  example.Text,
+					ReasonCode:   reasonCode,
+					ReasonText:   reasonText,
+				})
+				continue
+			}
 
-				allowed, reasonCode, reasonText := s.validateExample(example.Text, segments, themeSet)
-				if !allowed {
-						result.RejectedExamples++
-						rejections = append(rejections, generationRejection{
-								ThemeID:      themeID,
-								LitExampleID: example.ID,
-								ExampleText:  example.Text,
-								ReasonCode:   reasonCode,
-								ReasonText:   reasonText,
-						})
-						continue
-				}
-
-				created, err := s.createExercisePair(tx, themeID, example, segments)
-				if err != nil {
-						return err
-				}
-				result.GeneratedExercises += created
+			created, err := s.createExercisePair(tx, themeID, example, segments)
+			if err != nil {
+				return err
+			}
+			result.GeneratedExercises += created
 		}
 		return nil
 	})

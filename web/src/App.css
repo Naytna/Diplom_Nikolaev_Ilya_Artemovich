@@ -54,6 +54,7 @@ h3 {
   justify-content: space-between;
   align-items: center;
   gap: 28px;
+  flex-wrap: wrap;
 }
 
 .topbar > div:first-child {
@@ -86,6 +87,36 @@ h3 {
   display: flex;
   gap: 6px;
   align-items: center;
+}
+
+.sessionPanel {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sessionBadge {
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid #24445a;
+  background: #07131c;
+  display: grid;
+  gap: 4px;
+}
+
+.sessionBadge.guest {
+  border-color: #3a3a3a;
+  background: #111111;
+}
+
+.sessionBadge strong {
+  color: #ffffff;
+}
+
+.sessionBadge span {
+  color: #9ffcff;
+  font-size: 14px;
 }
 
 .navButton,
@@ -323,6 +354,16 @@ h3 {
   color: #baffff;
 }
 
+.mediaPlaceholder {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed #2b637f;
+  background: #06121a;
+  color: #9ffcff;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 .exercises {
   display: flex;
   flex-direction: column;
@@ -386,6 +427,10 @@ h3 {
 .errorBox {
   color: #ffbaba;
   border-color: #b93f3f;
+}
+
+.publicError {
+  margin-bottom: 18px;
 }
 
 .successBox {
@@ -487,6 +532,98 @@ h3 {
 
 .screenHeader p {
   color: #baffff;
+}
+
+.loginScreen {
+  min-height: calc(100vh - 120px);
+  padding: 40px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at top left, rgba(56, 168, 232, 0.22), transparent 30%),
+    linear-gradient(180deg, #111111 0%, #050505 100%);
+}
+
+.loginPanel {
+  width: min(760px, 100%);
+  padding: 28px;
+  border: 1px solid #2f4c63;
+  background: #05090d;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.loginPanel h2 {
+  margin-bottom: 10px;
+  font-size: 30px;
+}
+
+.loginLead {
+  margin-bottom: 22px;
+  color: #baffff;
+  line-height: 1.5;
+}
+
+.demoAccounts {
+  margin-bottom: 22px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.demoAccountCard {
+  padding: 16px;
+  border: 1px solid #2f4c63;
+  background: linear-gradient(180deg, #0b1b27 0%, #070707 100%);
+  color: #ffffff;
+  text-align: left;
+}
+
+.demoAccountCard:hover {
+  border-color: #38a8e8;
+}
+
+.demoAccountCard strong,
+.demoAccountCard span {
+  display: block;
+}
+
+.demoAccountCard strong {
+  margin-bottom: 6px;
+}
+
+.demoAccountCard span {
+  color: #9ffcff;
+}
+
+.loginForm {
+  display: grid;
+  gap: 14px;
+}
+
+.loginForm label {
+  display: grid;
+  gap: 8px;
+}
+
+.loginForm label span {
+  color: #9ffcff;
+  font-size: 14px;
+}
+
+.loginForm input {
+  width: 100%;
+  border: 1px solid #777777;
+  padding: 12px 13px;
+  background: #ffffff;
+  color: #000000;
+}
+
+.loginActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .screenGrid {
@@ -710,6 +847,13 @@ h3 {
     align-items: flex-start;
   }
 
+  .sessionPanel {
+    margin-left: 0;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .topActions {
     width: 100%;
   }
@@ -721,6 +865,14 @@ h3 {
 
   .searchBlock {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .demoAccounts,
+  .loginActions {
+    grid-template-columns: 1fr;
+    display: grid;
   }
 }
 
@@ -816,6 +968,28 @@ h3 {
   padding: 13px 15px;
   background: #000000;
   border: 1px solid #303030;
+}
+
+.rejectionMeta {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rejectionMeta span {
+  padding: 4px 8px;
+  background: #132c3d;
+  border: 1px solid #2f4c63;
+  color: #9ffcff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rejectionMeta small {
+  color: #7cc5e8;
+  font-size: 12px;
 }
 
 .rejectionItem strong {
@@ -1096,6 +1270,24 @@ h3 {
   margin: 8px 0 0;
   color: #9ffcff;
   line-height: 1.4;
+}
+
+.publicIntroCard {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid #24445a;
+  background: linear-gradient(180deg, #08131c 0%, #050505 100%);
+}
+
+.publicIntroCard strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #ffffff;
+}
+
+.publicIntroCard p {
+  color: #9ffcff;
+  line-height: 1.45;
 }
 
 .contextLabel {

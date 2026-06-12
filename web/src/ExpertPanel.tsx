@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
+import { type AuthUser, api } from './api'
 
 type Course = {
   id: number
@@ -90,30 +91,7 @@ type AuditLog = {
   created_at: string
 }
 
-const API_URL = 'http://localhost:18080/api'
 type ExpertTab = 'courses' | 'themes' | 'vocabulary' | 'generation' | 'materials' | 'publication' | 'logs'
-
-async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options?.headers ?? {}),
-    },
-    ...options,
-  })
-
-  const text = await response.text()
-
-  if (!response.ok) {
-    throw new Error(text || `Ошибка запроса: ${response.status}`)
-  }
-
-  if (!text) {
-    return null as T
-  }
-
-  return JSON.parse(text) as T
-}
 
 function getWordLabel(word: TranslatedWord) {
   return word.display_text || word.word_name || `ID ${word.id}`
@@ -147,6 +125,12 @@ function getExerciseTypeLabel(type: string) {
 }
 
 function getActionLabel(action: string) {
+  if (action === 'create') return 'Создание'
+  if (action === 'update') return 'Изменение'
+  if (action === 'publish') return 'Публикация'
+  if (action === 'unpublish') return 'Снятие с публикации'
+  if (action === 'delete') return 'Удаление'
+  if (action === 'generate') return 'Генерация упражнений'
   if (action === 'approved') return 'Упражнение одобрено'
   if (action === 'rejected') return 'Упражнение отклонено'
   if (action === 'add_translated_word') return 'Слово добавлено в тему'
@@ -170,6 +154,14 @@ function getEntityLabel(entityType: string, entityId: number) {
   return `${entityType} №${entityId}`
 }
 
+function getRejectionReasonLabel(reasonCode: string) {
+  if (reasonCode === 'incomplete_segmentation') return 'Неполная сегментация'
+  if (reasonCode === 'outside_theme_vocabulary') return 'Слова вне словаря темы'
+  if (reasonCode === 'not_enough_segments') return 'Недостаточно сегментов'
+
+  return reasonCode
+}
+
 function formatDateTime(value?: string) {
   if (!value) {
     return 'дата не указана'
@@ -188,10 +180,18 @@ function formatDateTime(value?: string) {
 }
 
 type ExpertPanelProps = {
+  authToken: string
+  currentUser: AuthUser
+  onUnauthorized: () => void
   onPublicContentChanged?: () => void | Promise<void>
 }
 
-export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps) {
+export default function ExpertPanel({
+  authToken,
+  currentUser,
+  onUnauthorized,
+  onPublicContentChanged,
+}: ExpertPanelProps) {
   const [activeTab, setActiveTab] = useState<ExpertTab>('courses')
   const [courses, setCourses] = useState<Course[]>([])
   const [themes, setThemes] = useState<Theme[]>([])
@@ -218,11 +218,19 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  async function authorizedApi<T>(path: string, options?: RequestInit) {
+    return api<T>(path, {
+      ...options,
+      authToken,
+      onUnauthorized,
+    })
+  }
+
   async function loadThemeLabels(courseList: Course[]) {
     const themeGroups = await Promise.all(
       courseList.map(async (course) => {
         try {
-          const data = await api<Theme[]>(`/courses/${course.id}/themes`)
+          const data = await authorizedApi<Theme[]>(`/courses/${course.id}/themes`)
           return data ?? []
         } catch {
           return []
@@ -240,7 +248,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
   }
 
   async function loadCourses() {
-    const data = await api<Course[]>('/courses')
+    const data = await authorizedApi<Course[]>('/courses')
     const safeData = data ?? []
 
     setCourses(safeData)
@@ -252,7 +260,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
   }
 
   async function loadThemes(courseId: number) {
-    const data = await api<Theme[]>(`/courses/${courseId}/themes`)
+    const data = await authorizedApi<Theme[]>(`/courses/${courseId}/themes`)
     const safeData = data ?? []
 
     setThemes(safeData)
@@ -268,8 +276,8 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
 
   async function loadThemeData(themeId: number) {
     const [themeVocabulary, themeExercises] = await Promise.all([
-      api<VocabularyItem[]>(`/themes/${themeId}/translated-words`),
-      api<Exercise[]>(`/themes/${themeId}/exercises`),
+      authorizedApi<VocabularyItem[]>(`/themes/${themeId}/translated-words`),
+      authorizedApi<Exercise[]>(`/themes/${themeId}/exercises`),
     ])
 
     setVocabulary(themeVocabulary ?? [])
@@ -285,14 +293,14 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
       return
     }
 
-    const data = await api<GenerationRejection[]>(`/generation-runs/${runId}/rejections`)
+    const data = await authorizedApi<GenerationRejection[]>(`/generation-runs/${runId}/rejections`)
     setGenerationRejections(Array.isArray(data) ? data : [])
   }
 
   async function loadLogs() {
     const [generationRuns, auditLogs] = await Promise.all([
-      api<GenerationRun[]>('/generation-runs'),
-      api<AuditLog[]>('/audit'),
+      authorizedApi<GenerationRun[]>('/generation-runs'),
+      authorizedApi<AuditLog[]>('/audit'),
     ])
 
     setRuns(generationRuns ?? [])
@@ -372,7 +380,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      const created = await api<Course>('/courses', {
+      const created = await authorizedApi<Course>('/courses', {
         method: 'POST',
         body: JSON.stringify({
           title: courseTitle,
@@ -402,7 +410,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      await api(`/courses/${selectedCourseId}/unpublish`, {
+      await authorizedApi(`/courses/${selectedCourseId}/unpublish`, {
         method: 'POST',
       })
 
@@ -432,7 +440,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      await api(`/courses/${course.id}`, {
+      await authorizedApi(`/courses/${course.id}`, {
         method: 'DELETE',
       })
 
@@ -473,7 +481,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      const created = await api<Theme>(`/courses/${selectedCourseId}/themes`, {
+      const created = await authorizedApi<Theme>(`/courses/${selectedCourseId}/themes`, {
         method: 'POST',
         body: JSON.stringify({
           title: themeTitle,
@@ -505,7 +513,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      await api(`/themes/${selectedThemeId}/unpublish`, {
+      await authorizedApi(`/themes/${selectedThemeId}/unpublish`, {
         method: 'POST',
       })
 
@@ -538,7 +546,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      await api(`/themes/${theme.id}`, {
+      await authorizedApi(`/themes/${theme.id}`, {
         method: 'DELETE',
       })
 
@@ -575,7 +583,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      const data = await api<TranslatedWord[]>(`/translated-words?search=${encodeURIComponent(search)}`)
+      const data = await authorizedApi<TranslatedWord[]>(`/translated-words?search=${encodeURIComponent(search)}`)
       setSearchResults(data ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось выполнить поиск')
@@ -594,7 +602,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      await api(`/themes/${selectedThemeId}/translated-words`, {
+      await authorizedApi(`/themes/${selectedThemeId}/translated-words`, {
         method: 'POST',
         body: JSON.stringify({
           translated_word_id: translatedWordId,
@@ -622,7 +630,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      await api(`/themes/${selectedThemeId}/translated-words/${translatedWordId}`, {
+      await authorizedApi(`/themes/${selectedThemeId}/translated-words/${translatedWordId}`, {
         method: 'DELETE',
       })
 
@@ -645,7 +653,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      const result = await api<GenerationRun>(`/themes/${selectedThemeId}/generate`, {
+      const result = await authorizedApi<GenerationRun>(`/themes/${selectedThemeId}/generate`, {
         method: 'POST',
       })
 
@@ -678,10 +686,9 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      await api(`/exercises/${exerciseId}/approve`, {
+      await authorizedApi(`/exercises/${exerciseId}/approve`, {
         method: 'PUT',
         body: JSON.stringify({
-          reviewer_id: 1,
           comment: 'Проверено через экспертный интерфейс',
         }),
       })
@@ -705,10 +712,9 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
     setLoading(true)
 
     try {
-      await api(`/exercises/${exerciseId}/reject`, {
+      await authorizedApi(`/exercises/${exerciseId}/reject`, {
         method: 'PUT',
         body: JSON.stringify({
-          reviewer_id: 1,
           comment: 'Отклонено через экспертный интерфейс',
         }),
       })
@@ -831,13 +837,13 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
 
     try {
       if (!isCoursePublished) {
-        await api(`/courses/${selectedCourseId}/publish`, {
+        await authorizedApi(`/courses/${selectedCourseId}/publish`, {
           method: 'POST',
         })
       }
 
       if (!isThemePublished) {
-        await api(`/themes/${selectedThemeId}/publish`, {
+        await authorizedApi(`/themes/${selectedThemeId}/publish`, {
           method: 'POST',
         })
       }
@@ -886,6 +892,7 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
           <p>
             Курс: {selectedCourse ? selectedCourse.title : 'не выбран'} · Тема: {selectedTheme ? selectedTheme.title : 'не выбрана'}
           </p>
+          <p>Пользователь: {currentUser.full_name}</p>
         </div>
 
         <button className="primaryButton" onClick={refreshAll}>
@@ -898,43 +905,43 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
           className={activeTab === 'courses' ? 'expertTab active' : 'expertTab'}
           onClick={() => setActiveTab('courses')}
         >
-          Курсы
+          1. Курсы
         </button>
         <button
           className={activeTab === 'themes' ? 'expertTab active' : 'expertTab'}
           onClick={() => setActiveTab('themes')}
         >
-          Темы
+          2. Темы
         </button>
         <button
           className={activeTab === 'vocabulary' ? 'expertTab active' : 'expertTab'}
           onClick={() => setActiveTab('vocabulary')}
         >
-          Словарь
+          3. Словарь
         </button>
         <button
           className={activeTab === 'generation' ? 'expertTab active' : 'expertTab'}
           onClick={() => setActiveTab('generation')}
         >
-          Генерация
+          4. Генерация
         </button>
         <button
           className={activeTab === 'materials' ? 'expertTab active' : 'expertTab'}
           onClick={() => setActiveTab('materials')}
         >
-          Материалы
+          5. Материалы
         </button> 
         <button
           className={activeTab === 'publication' ? 'expertTab active' : 'expertTab'}
           onClick={() => setActiveTab('publication')}
         >
-          Публикация
+          6. Публикация
         </button>       
         <button
           className={activeTab === 'logs' ? 'expertTab active' : 'expertTab'}
           onClick={() => setActiveTab('logs')}
         >
-          Журнал
+          7. Журнал
         </button>
       </nav>
 
@@ -1213,6 +1220,10 @@ export default function ExpertPanel({ onPublicContentChanged }: ExpertPanelProps
                 <div className="rejectionList">
                   {generationRejections.map((item) => (
                     <article className="rejectionItem" key={item.id}>
+                      <div className="rejectionMeta">
+                        <span>{getRejectionReasonLabel(item.reason_code)}</span>
+                        <small>Пример #{item.lit_example_id}</small>
+                      </div>
                       <strong>{item.example_text}</strong>
                       <p>{item.reason_text}</p>
                     </article>
