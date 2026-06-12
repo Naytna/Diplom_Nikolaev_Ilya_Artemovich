@@ -455,15 +455,23 @@ h3 {
   letter-spacing: 0.04em;
 }
 
-.workbookLines {
-  display: grid;
-  gap: 10px;
+.workbookTextarea {
+  width: 100%;
+  min-height: 108px;
+  padding: 12px 13px;
+  border: 1px solid #35556c;
+  background: #03080d;
+  color: #e5fbff;
+  resize: vertical;
 }
 
-.workbookLines span {
-  display: block;
-  min-height: 22px;
-  border-bottom: 1px dashed #4f7a95;
+.workbookTextarea::placeholder {
+  color: #6f95ab;
+}
+
+.workbookTextarea:focus {
+  outline: 1px solid #4b88ad;
+  border-color: #4b88ad;
 }
 
 .workbookAnswerCard small {

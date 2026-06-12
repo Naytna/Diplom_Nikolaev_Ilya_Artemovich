@@ -259,6 +259,7 @@ function App() {
   const [selectedThemeId, setSelectedThemeId] = useState<number | null>(null)
   const [mode, setMode] = useState<'textbook' | 'workbook'>('textbook')
   const [revealed, setRevealed] = useState<Record<number, boolean>>({})
+  const [workbookAnswers, setWorkbookAnswers] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(true)
   const [contentLoading, setContentLoading] = useState(false)
   const [error, setError] = useState('')
@@ -401,6 +402,7 @@ function App() {
 
     setContentLoading(true)
     setRevealed({})
+    setWorkbookAnswers({})
 
     publicApi<ThemeFull>(`/public/themes/${selectedThemeId}/${mode}-full`)
       .then((data: ThemeFull | null) => {
@@ -437,6 +439,13 @@ function App() {
     setRevealed((prev) => ({
       ...prev,
       [exerciseId]: !prev[exerciseId],
+    }))
+  }
+
+  const updateWorkbookAnswer = (exerciseId: number, value: string) => {
+    setWorkbookAnswers((prev) => ({
+      ...prev,
+      [exerciseId]: value,
     }))
   }
 
@@ -753,12 +762,15 @@ function App() {
                           {mode === 'workbook' && (
                             <div className="workbookAnswerCard">
                               <span className="workbookAnswerLabel">Ваш ответ</span>
-                              <div className="workbookLines" aria-hidden="true">
-                                <span />
-                                <span />
-                                <span />
-                              </div>
-                              <small>Ответ скрыт для самопроверки</small>
+                              <textarea
+                                className="workbookTextarea"
+                                value={workbookAnswers[exercise.id] ?? ''}
+                                onChange={(event) => updateWorkbookAnswer(exercise.id, event.target.value)}
+                                placeholder="Введите последовательность жестов в удобной для вас записи"
+                              />
+                              <small>
+                                {showAnswer ? 'Образец последовательности' : 'Ответ скрыт для самопроверки'}
+                              </small>
                             </div>
                           )}
 
@@ -767,7 +779,7 @@ function App() {
                               className="answerButton"
                               onClick={() => toggleAnswer(exercise.id)}
                             >
-                              {showAnswer ? 'Скрыть ответ' : 'Показать ответ'}
+                              {showAnswer ? 'Скрыть образец ответа' : 'Показать образец ответа'}
                             </button>
                           )}
 
