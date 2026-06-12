@@ -388,6 +388,21 @@ h3 {
   color: #9fffff;
 }
 
+.exerciseTop span {
+  color: #7cc5e8;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.exercisePrompt {
+  margin-bottom: 10px;
+  color: #9ffcff;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
 .phrase {
   margin-bottom: 16px;
   color: #ffffff;
@@ -421,6 +436,39 @@ h3 {
 
 .segment small {
   color: #baffff;
+}
+
+.workbookAnswerCard {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px dashed #2f4c63;
+  background: #071019;
+  display: grid;
+  gap: 10px;
+}
+
+.workbookAnswerLabel {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.workbookLines {
+  display: grid;
+  gap: 10px;
+}
+
+.workbookLines span {
+  display: block;
+  min-height: 22px;
+  border-bottom: 1px dashed #4f7a95;
+}
+
+.workbookAnswerCard small {
+  color: #8ebfd8;
+  font-size: 13px;
 }
 
 .loadingBox,
@@ -1101,6 +1149,13 @@ h3 {
   color: #baffff;
 }
 
+.workbookInstruction {
+  margin-bottom: 10px;
+  color: #9ffcff;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
 .answerSequence {
   display: flex;
   flex-wrap: wrap;
@@ -1118,6 +1173,28 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.workbookPreviewAnswer {
+  padding: 14px 16px;
+  border: 1px dashed #2f4c63;
+  background: #071019;
+}
+
+.workbookPreviewLines {
+  display: grid;
+  gap: 10px;
+}
+
+.workbookPreviewLine {
+  display: block;
+  min-height: 22px;
+  border-bottom: 1px dashed #4f7a95;
+}
+
+.workbookHint {
+  color: #8ebfd8;
+  font-size: 13px;
 }
 
 .answerSlot {

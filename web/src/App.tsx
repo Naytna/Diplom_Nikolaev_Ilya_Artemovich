@@ -742,7 +742,25 @@ function App() {
                             <span>Упражнение {index + 1}</span>
                           </div>
 
+                          {mode === 'workbook' && (
+                            <p className="exercisePrompt">
+                              Запишите последовательность жестов для фразы
+                            </p>
+                          )}
+
                           <p className="phrase">{exercise.phrase}</p>
+
+                          {mode === 'workbook' && (
+                            <div className="workbookAnswerCard">
+                              <span className="workbookAnswerLabel">Ваш ответ</span>
+                              <div className="workbookLines" aria-hidden="true">
+                                <span />
+                                <span />
+                                <span />
+                              </div>
+                              <small>Ответ скрыт для самопроверки</small>
+                            </div>
+                          )}
 
                           {mode === 'workbook' && (
                             <button

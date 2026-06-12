@@ -1383,17 +1383,19 @@ export default function ExpertPanel({
                             <strong>{getStatusLabel(exercise.status)}</strong>
                           </div>
 
+                          <p className="workbookInstruction">
+                            Запишите последовательность жестов для фразы
+                          </p>
+
                           <p className="materialQuestion">{exercise.phrase}</p>
 
-                          <div className="hiddenAnswer">
-                            <span>Запишите последовательность жестов:</span>
+                          <div className="hiddenAnswer workbookPreviewAnswer">
+                            <span>Ваш ответ</span>
 
                             {!isAnswerVisible && (
-                              <div className="workbookSlots">
-                                {segments.map((segment) => (
-                                  <span className="answerSlot" key={segment.id}>
-                                    {segment.position_index}
-                                  </span>
+                              <div className="workbookPreviewLines" aria-hidden="true">
+                                {Array.from({ length: Math.max(3, segments.length || 0) }).map((_, lineIndex) => (
+                                  <span className="workbookPreviewLine" key={`${exercise.id}-line-${lineIndex}`} />
                                 ))}
                               </div>
                             )}
@@ -1405,6 +1407,8 @@ export default function ExpertPanel({
                                 ))}
                               </div>
                             )}
+
+                            <small className="workbookHint">Ответ скрыт для самопроверки</small>
                           </div>
 
                           <button
