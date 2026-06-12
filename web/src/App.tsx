@@ -571,11 +571,6 @@ function App() {
                 >
                   <span>{course.title}</span>
                   <small>Тем: {course.themes_count}</small>
-                  <div className="itemMetaRow">
-                    <span className={getPublicStatusTone(course.status)}>
-                      {getPublicStatusLabel(course.status)}
-                    </span>
-                  </div>
                 </button>
               ))}
             </div>
@@ -621,11 +616,6 @@ function App() {
                   <div>
                     <span>{theme.title}</span>
                     <small>{theme.description}</small>
-                    <div className="itemMetaRow">
-                      <span className={getPublicStatusTone(theme.status)}>
-                        {getPublicStatusLabel(theme.status)}
-                      </span>
-                    </div>
                   </div>
                   <em>№ {theme.order_index}</em>
                 </button>
@@ -750,9 +740,6 @@ function App() {
                         <article className="exerciseCard" key={exercise.id}>
                           <div className="exerciseTop">
                             <span>Упражнение {index + 1}</span>
-                            <small className={getPublicStatusTone(exercise.status)}>
-                              {getPublicStatusLabel(exercise.status)}
-                            </small>
                           </div>
 
                           <p className="phrase">{exercise.phrase}</p>

@@ -1408,26 +1408,24 @@ h3 {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border: 1px solid #24445a;
-  background: #07131c;
-  color: #9ffcff;
-  font-size: 13px;
-  font-weight: 800;
+  background: transparent;
+  color: #8ebfd8;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
 .statusBadge.ready {
-  border-color: #267a45;
-  background: #071a0d;
-  color: #8cffaa;
+  border-color: #3a5c4a;
+  color: #9cc8ad;
 }
 
 .statusBadge.blocked {
-  border-color: #7a2f2f;
-  background: #1a0707;
-  color: #ffb3b3;
+  border-color: #6e4a4a;
+  color: #d7abab;
 }
 
 .publicationScreen {
