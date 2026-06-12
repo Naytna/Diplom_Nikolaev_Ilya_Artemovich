@@ -20,6 +20,7 @@ type GenerationResult struct {
 	FoundExamples      int    `json:"found_examples"`
 	GeneratedExercises int    `json:"generated_exercises"`
 	RejectedExamples   int    `json:"rejected_examples"`
+	SkippedExamples    int    `json:"skipped_examples"`
 	DurationMS         int64  `json:"duration_ms"`
 	Status             string `json:"status"`
 }
@@ -114,6 +115,7 @@ func (s *GenerationService) Generate(themeID int64, userID int64) (GenerationRes
 				return err
 			}
 			if used {
+				result.SkippedExamples++
 				continue
 			}
 
@@ -360,10 +362,10 @@ func (s *GenerationService) saveRun(themeID int64, userID int64, result Generati
 
 	err := s.db.Raw(`
 		insert into learning.generation_runs
-		(theme_id, started_by, status, found_examples, generated_exercises, rejected_examples, duration_ms, error_message)
-		values (?, ?, ?, ?, ?, ?, ?, ?)
+		(theme_id, started_by, status, found_examples, generated_exercises, rejected_examples, skipped_examples, duration_ms, error_message)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		returning id
-	`, themeID, userID, result.Status, result.FoundExamples, result.GeneratedExercises, result.RejectedExamples, duration, message).Scan(&runID).Error
+	`, themeID, userID, result.Status, result.FoundExamples, result.GeneratedExercises, result.RejectedExamples, result.SkippedExamples, duration, message).Scan(&runID).Error
 
 	return runID, err
 }

@@ -20,6 +20,9 @@ func main() {
 	if err := database.EnsureDemoAuthData(db); err != nil {
 		log.Fatal(err)
 	}
+	if err := database.EnsureGenerationRunsSchema(db); err != nil {
+		log.Fatal(err)
+	}
 
 	app := fiber.New()
 

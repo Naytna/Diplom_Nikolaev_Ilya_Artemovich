@@ -40,3 +40,10 @@ func EnsureDemoAuthData(db *gorm.DB) error {
 
 	return nil
 }
+
+func EnsureGenerationRunsSchema(db *gorm.DB) error {
+	return db.Exec(`
+		alter table learning.generation_runs
+		add column if not exists skipped_examples integer not null default 0
+	`).Error
+}

@@ -681,7 +681,7 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, cfg config.Config) {
 	expert.Get("/generation-runs", func(c *fiber.Ctx) error {
 		var rows []map[string]any
 		err := db.Table("learning.generation_runs").
-			Select("id, theme_id, started_by, status, found_examples, generated_exercises, rejected_examples, duration_ms, error_message, created_at").
+			Select("id, theme_id, started_by, status, found_examples, generated_exercises, rejected_examples, skipped_examples, duration_ms, error_message, created_at").
 			Order("id desc").
 			Find(&rows).Error
 		if err != nil {

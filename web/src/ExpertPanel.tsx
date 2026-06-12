@@ -65,6 +65,7 @@ type GenerationRun = {
   found_examples: number
   generated_exercises: number
   rejected_examples: number
+  skipped_examples?: number
   duration_ms: number
   status: string
   error_message?: string
@@ -671,7 +672,7 @@ export default function ExpertPanel({
       }
 
       setMessage(
-        `Генерация завершена: найдено ${result.found_examples}, создано ${result.generated_exercises}, отклонено ${result.rejected_examples}`,
+        `Генерация завершена: найдено ${result.found_examples}, создано ${result.generated_exercises}, отклонено ${result.rejected_examples}, пропущено ${result.skipped_examples ?? 0}`,
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось запустить генерацию')
@@ -1201,6 +1202,10 @@ export default function ExpertPanel({
                   <strong>{lastGenerationResult.rejected_examples}</strong>
                 </div>
                 <div>
+                  <span>Пропущено примеров</span>
+                  <strong>{lastGenerationResult.skipped_examples ?? 0}</strong>
+                </div>
+                <div>
                   <span>Статус</span>
                   <strong>{getStatusLabel(lastGenerationResult.status)}</strong>
                 </div>
@@ -1494,7 +1499,7 @@ export default function ExpertPanel({
                     <span>Тема: {getThemeLabel(run.theme_id)}</span>
                     <span>{formatDateTime(run.created_at)}</span>
                     <span>
-                      {getStatusLabel(run.status)}: найдено {run.found_examples}, создано {run.generated_exercises}, отклонено {run.rejected_examples}
+                      {getStatusLabel(run.status)}: найдено {run.found_examples}, создано {run.generated_exercises}, отклонено {run.rejected_examples}, пропущено {run.skipped_examples ?? 0}
                     </span>
                   </div>
                 ))}
