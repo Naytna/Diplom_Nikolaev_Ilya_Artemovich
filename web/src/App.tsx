@@ -107,6 +107,27 @@ function isStudent(user: AuthUser | null) {
   return user?.role === 'student'
 }
 
+function getPublicStatusLabel(status: string) {
+  if (status === 'published') return 'Опубликовано'
+  if (status === 'approved') return 'Одобрено'
+  if (status === 'draft') return 'Черновик'
+  if (status === 'rejected') return 'Отклонено'
+
+  return status
+}
+
+function getPublicStatusTone(status: string) {
+  if (status === 'published' || status === 'approved') {
+    return 'statusBadge ready'
+  }
+
+  if (status === 'rejected') {
+    return 'statusBadge blocked'
+  }
+
+  return 'statusBadge'
+}
+
 function saveAuthState(state: AuthState) {
   if (!state.token || !state.user) {
     localStorage.removeItem(STORAGE_KEY)
@@ -550,6 +571,11 @@ function App() {
                 >
                   <span>{course.title}</span>
                   <small>Тем: {course.themes_count}</small>
+                  <div className="itemMetaRow">
+                    <span className={getPublicStatusTone(course.status)}>
+                      {getPublicStatusLabel(course.status)}
+                    </span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -566,6 +592,9 @@ function App() {
                 <strong>{currentCourse.title}</strong>
                 <p>{currentCourse.description}</p>
                 <div className="contextMeta">
+                  <span className={getPublicStatusTone(currentCourse.status)}>
+                    {getPublicStatusLabel(currentCourse.status)}
+                  </span>
                   <span>Опубликованных тем: {currentCourse.themes_count}</span>
                 </div>
               </div>
@@ -592,6 +621,11 @@ function App() {
                   <div>
                     <span>{theme.title}</span>
                     <small>{theme.description}</small>
+                    <div className="itemMetaRow">
+                      <span className={getPublicStatusTone(theme.status)}>
+                        {getPublicStatusLabel(theme.status)}
+                      </span>
+                    </div>
                   </div>
                   <em>№ {theme.order_index}</em>
                 </button>
@@ -683,16 +717,15 @@ function App() {
                   <div className="dictionary">
                     {themeFull.vocabulary.map((item) => (
                       <article className="dictCard" key={item.id}>
-                        <div>
+                        <div className="dictCardMain">
                           <strong>{item.gesture_name}</strong>
                           <p>{item.gesture_description}</p>
                         </div>
-                        <div>
+                        <div className="dictCardMeta">
                           <span>{item.display_text}</span>
                           <small>{item.concept_name}</small>
-                        </div>
-                        <div className="mediaPlaceholder">
-                          Медиаматериал будет доступен после интеграции с основной платформой
+                          <small>Слово: {item.word_name}</small>
+                          <small>Жест: {item.gesture_name}</small>
                         </div>
                       </article>
                     ))}
@@ -717,7 +750,9 @@ function App() {
                         <article className="exerciseCard" key={exercise.id}>
                           <div className="exerciseTop">
                             <span>Упражнение {index + 1}</span>
-                            <small>{exercise.status}</small>
+                            <small className={getPublicStatusTone(exercise.status)}>
+                              {getPublicStatusLabel(exercise.status)}
+                            </small>
                           </div>
 
                           <p className="phrase">{exercise.phrase}</p>

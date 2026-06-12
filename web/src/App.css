@@ -261,6 +261,13 @@ h3 {
   color: #9fffff;
 }
 
+.itemMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .content {
   max-height: calc(100vh - 172px);
   overflow: auto;
@@ -330,10 +337,18 @@ h3 {
 
 .dictCard {
   padding: 16px;
+  display: grid;
+  gap: 14px;
 }
 
 .dictCard strong {
   color: #ffffff;
+}
+
+.dictCardMain,
+.dictCardMeta {
+  display: grid;
+  gap: 6px;
 }
 
 .dictCard p {
@@ -354,16 +369,6 @@ h3 {
   color: #baffff;
 }
 
-.mediaPlaceholder {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border: 1px dashed #2b637f;
-  background: #06121a;
-  color: #9ffcff;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
 .exercises {
   display: flex;
   flex-direction: column;
@@ -377,6 +382,8 @@ h3 {
 .exerciseTop {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 12px;
   color: #9fffff;
 }
@@ -1383,6 +1390,10 @@ h3 {
   line-height: 1.35;
 }
 
+.themeListItem .itemMetaRow {
+  margin-top: 10px;
+}
+
 .themeListItem em {
   flex: 0 0 auto;
   padding: 4px 8px;
@@ -1391,6 +1402,32 @@ h3 {
   color: #38a8e8;
   font-style: normal;
   font-weight: 800;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid #24445a;
+  background: #07131c;
+  color: #9ffcff;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.statusBadge.ready {
+  border-color: #267a45;
+  background: #071a0d;
+  color: #8cffaa;
+}
+
+.statusBadge.blocked {
+  border-color: #7a2f2f;
+  background: #1a0707;
+  color: #ffb3b3;
 }
 
 .publicationScreen {
