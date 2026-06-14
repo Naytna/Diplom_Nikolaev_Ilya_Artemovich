@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import ExpertPanel from './ExpertPanel'
-import { api, publicApi, type AuthUser } from './api'
+import { api, publicApi, setDemoRole, type AuthUser, type DemoRole } from './api'
 
 type Course = {
   id: number
@@ -87,6 +87,45 @@ type LoginResponse = {
 type ViewMode = 'public' | 'expert' | 'login'
 
 const STORAGE_KEY = 'rsl-demo-auth'
+const DEMO_ROLE_STORAGE_KEY = 'rsl-demo-role'
+
+type RolePermissions = {
+  canViewExpertPanel: boolean
+  canViewWorkbook: boolean
+  canUseSelfCheck: boolean
+  canPublish: boolean
+  canGenerate: boolean
+}
+
+const roleLabels: Record<DemoRole, string> = {
+  guest: 'Гость',
+  learner: 'Обучающийся',
+  expert: 'Эксперт',
+}
+
+const rolePermissions: Record<DemoRole, RolePermissions> = {
+  guest: {
+    canViewExpertPanel: false,
+    canViewWorkbook: false,
+    canUseSelfCheck: false,
+    canPublish: false,
+    canGenerate: false,
+  },
+  learner: {
+    canViewExpertPanel: false,
+    canViewWorkbook: true,
+    canUseSelfCheck: true,
+    canPublish: false,
+    canGenerate: false,
+  },
+  expert: {
+    canViewExpertPanel: true,
+    canViewWorkbook: true,
+    canUseSelfCheck: true,
+    canPublish: true,
+    canGenerate: true,
+  },
+}
 
 function normalizeThemeFull(data: ThemeFull): ThemeFull {
   return {
@@ -152,10 +191,10 @@ function LoginScreen({
   return (
     <section className="loginScreen">
       <div className="loginPanel">
-        <div className="eyebrow">Демонстрационная авторизация</div>
-        <h2>Вход в модуль</h2>
+        <div className="eyebrow">Демонстрационный доступ эксперта</div>
+        <h2>Вход в экспертную часть</h2>
         <p className="loginLead">
-          Эксперт работает с генерацией, публикацией и журналом. Студент видит только опубликованные материалы.
+          Для роли эксперта используется отдельный демонстрационный вход. Роли гостя и обучающегося работают без авторизации.
         </p>
 
         <div className="demoAccounts">
@@ -166,14 +205,6 @@ function LoginScreen({
           >
             <strong>Эксперт</strong>
             <span>expert / expert123</span>
-          </button>
-          <button
-            className="demoAccountCard"
-            type="button"
-            onClick={() => applyDemoCredentials('student', 'student123')}
-          >
-            <strong>Студент</strong>
-            <span>student / student123</span>
           </button>
         </div>
 
@@ -223,6 +254,18 @@ function LoginScreen({
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('public')
+  const [demoRole, setCurrentDemoRole] = useState<DemoRole>(() => {
+    if (typeof window === 'undefined') {
+      return 'guest'
+    }
+
+    const raw = window.localStorage.getItem(DEMO_ROLE_STORAGE_KEY)
+    if (raw === 'learner' || raw === 'expert') {
+      return raw
+    }
+
+    return 'guest'
+  })
   const [authState, setAuthState] = useState<AuthState>({ token: null, user: null })
   const [authLoading, setAuthLoading] = useState(true)
   const [loginLoading, setLoginLoading] = useState(false)
@@ -238,7 +281,10 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [contentLoading, setContentLoading] = useState(false)
   const [error, setError] = useState('')
+  const [roleMessage, setRoleMessage] = useState('')
   const [publicRefreshToken, setPublicRefreshToken] = useState(0)
+
+  const permissions = rolePermissions[demoRole]
 
   const clearAuth = useCallback(() => {
     const nextState = { token: null, user: null }
@@ -257,6 +303,7 @@ function App() {
 
   useEffect(() => {
     const stored = loadStoredAuthState()
+    setDemoRole(demoRole)
 
     if (!stored.token) {
       setAuthLoading(false)
@@ -276,7 +323,12 @@ function App() {
       .finally(() => {
         setAuthLoading(false)
       })
-  }, [applyAuth, clearAuth])
+  }, [applyAuth, clearAuth, demoRole])
+
+  useEffect(() => {
+    localStorage.setItem(DEMO_ROLE_STORAGE_KEY, demoRole)
+    setDemoRole(demoRole)
+  }, [demoRole])
 
   const loadPublicCourses = useCallback((silent = false) => {
     if (!silent) {
@@ -442,6 +494,50 @@ function App() {
     }
   }
 
+  const handleRoleChange = (nextRole: DemoRole) => {
+    setCurrentDemoRole(nextRole)
+    setRoleMessage('')
+    setLoginError('')
+
+    if (nextRole !== 'expert' && authState.user) {
+      clearAuth()
+    }
+
+    if (nextRole === 'guest' && mode === 'workbook') {
+      setMode('textbook')
+    }
+
+    setViewMode('public')
+  }
+
+  const openExpertArea = () => {
+    if (!permissions.canViewExpertPanel) {
+      setRoleMessage('Экспертная часть доступна только пользователю с ролью эксперта')
+      setViewMode('public')
+      return
+    }
+
+    setRoleMessage('')
+
+    if (!authState.user || authState.user.role !== 'expert' || !authState.token) {
+      setViewMode('login')
+      return
+    }
+
+    setViewMode('expert')
+  }
+
+  const openWorkbook = () => {
+    if (!permissions.canViewWorkbook) {
+      setRoleMessage('Рабочая тетрадь доступна только обучающемуся или эксперту')
+      setMode('textbook')
+      return
+    }
+
+    setRoleMessage('')
+    setMode('workbook')
+  }
+
   if (authLoading || loading) {
     return <main className="page">Загрузка модуля...</main>
   }
@@ -473,6 +569,19 @@ function App() {
           <h1 className="topbarTitle">Методические материалы РЖЯ</h1>
         </div>
         <div className="topActions">
+          <div className="roleSwitch" role="tablist" aria-label="Демонстрационная роль">
+            {(['guest', 'learner', 'expert'] as DemoRole[]).map((role) => (
+              <button
+                className={demoRole === role ? 'roleButton active' : 'roleButton'}
+                key={role}
+                onClick={() => handleRoleChange(role)}
+                type="button"
+              >
+                {roleLabels[role]}
+              </button>
+            ))}
+          </div>
+
           <button
             className={viewMode === 'public' ? 'navButton active' : 'navButton'}
             onClick={() => setViewMode('public')}
@@ -480,16 +589,14 @@ function App() {
             Публичная часть
           </button>
 
-          {isExpert(authState.user) && (
-            <button
-              className={viewMode === 'expert' ? 'navButton active' : 'navButton'}
-              onClick={() => setViewMode('expert')}
-            >
-              Экспертная часть
-            </button>
-          )}
+          <button
+            className={viewMode === 'expert' ? 'navButton active' : 'navButton'}
+            onClick={openExpertArea}
+          >
+            Экспертная часть
+          </button>
 
-          {!authState.user && (
+          {!authState.user && demoRole === 'expert' && (
             <button className="navButton" onClick={() => setViewMode('login')}>
               Войти
             </button>
@@ -497,13 +604,11 @@ function App() {
         </div>
 
         <div className="sessionPanel">
-          {authState.user ? (
+          {demoRole === 'expert' && authState.user ? (
             <>
               <div className="sessionBadge">
                 <strong>{authState.user.full_name}</strong>
-                <span className="sessionRole">
-                  {authState.user.role === 'expert' ? 'Роль: эксперт' : 'Роль: студент'}
-                </span>
+                <span className="sessionRole">Роль: эксперт</span>
               </div>
               <button className="secondaryButton" onClick={clearAuth}>
                 Выйти
@@ -511,12 +616,20 @@ function App() {
             </>
           ) : (
             <div className="sessionBadge guest">
-              <strong>Гость</strong>
-              <span>Доступна только публичная часть</span>
+              <strong>{roleLabels[demoRole]}</strong>
+              <span>
+                {demoRole === 'guest'
+                  ? 'Доступны курсы, темы, словарь и учебник'
+                  : demoRole === 'learner'
+                    ? 'Доступны учебник и рабочая тетрадь'
+                    : 'Для экспертной части выполните вход'}
+              </span>
             </div>
           )}
         </div>
       </header>
+
+      {roleMessage && <div className="roleNotice">{roleMessage}</div>}
 
       {viewMode === 'expert' && isExpert(authState.user) && authState.token ? (
         <ExpertPanel
@@ -616,13 +729,22 @@ function App() {
               <div className="modeSwitch">
                 <button
                   className={mode === 'textbook' ? 'modeButton active' : 'modeButton'}
-                  onClick={() => setMode('textbook')}
+                  onClick={() => {
+                    setRoleMessage('')
+                    setMode('textbook')
+                  }}
                 >
                   Учебник
                 </button>
                 <button
-                  className={mode === 'workbook' ? 'modeButton active' : 'modeButton'}
-                  onClick={() => setMode('workbook')}
+                  className={
+                    mode === 'workbook'
+                      ? 'modeButton active'
+                      : !permissions.canViewWorkbook
+                        ? 'modeButton disabled'
+                        : 'modeButton'
+                  }
+                  onClick={openWorkbook}
                 >
                   Рабочая тетрадь
                 </button>
@@ -662,6 +784,12 @@ function App() {
                     </p>
                   </>
                 )}
+              </div>
+            )}
+
+            {!contentLoading && !permissions.canViewWorkbook && mode === 'workbook' && (
+              <div className="accessInfoBox">
+                Рабочая тетрадь доступна только обучающемуся или эксперту
               </div>
             )}
 
@@ -723,7 +851,7 @@ function App() {
                             <small>{mode === 'textbook' ? 'Режим учебника' : 'Самопроверка'}</small>
                           </div>
 
-                          {mode === 'workbook' && (
+                          {mode === 'workbook' && permissions.canUseSelfCheck && (
                             <p className="exercisePrompt">
                               Запишите последовательность жестов для фразы
                             </p>
@@ -731,7 +859,7 @@ function App() {
 
                           <p className="phrase">{exercise.phrase}</p>
 
-                          {mode === 'workbook' && (
+                          {mode === 'workbook' && permissions.canUseSelfCheck && (
                             <div className="workbookAnswerCard">
                               <span className="workbookAnswerLabel">Ваш ответ</span>
                               <textarea
@@ -746,7 +874,7 @@ function App() {
                             </div>
                           )}
 
-                          {mode === 'workbook' && (
+                          {mode === 'workbook' && permissions.canUseSelfCheck && (
                             <button
                               className="answerButton"
                               onClick={() => toggleAnswer(exercise.id)}

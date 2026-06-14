@@ -2,6 +2,7 @@ package http
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"rsl-learning-generator/backend/internal/auth"
@@ -50,6 +51,44 @@ type addTranslatedWordRequest struct {
 
 type reviewExerciseRequest struct {
 	Comment string `json:"comment"`
+}
+
+const demoRoleHeader = "X-Demo-Role"
+
+func requireDemoRoles(allowedRoles ...string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		if err := ensureDemoRoleAccess(c, allowedRoles...); err != nil {
+			return err
+		}
+		return c.Next()
+	}
+}
+
+func currentDemoRole(c *fiber.Ctx) string {
+	role := strings.TrimSpace(strings.ToLower(c.Get(demoRoleHeader)))
+
+	switch role {
+	case "expert", "learner":
+		return role
+	default:
+		return "guest"
+	}
+}
+
+func ensureDemoRoleAccess(c *fiber.Ctx, allowedRoles ...string) error {
+	role := currentDemoRole(c)
+
+	for _, allowedRole := range allowedRoles {
+		if role == allowedRole {
+			return nil
+		}
+	}
+
+	if len(allowedRoles) == 1 && allowedRoles[0] == "expert" {
+		return errorJSON(c, fiber.StatusForbidden, "экспертная часть доступна только пользователю с ролью эксперта")
+	}
+
+	return errorJSON(c, fiber.StatusForbidden, "рабочая тетрадь доступна только обучающемуся или эксперту")
 }
 
 func RegisterRoutes(app *fiber.App, db *gorm.DB, cfg config.Config) {
@@ -164,6 +203,11 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, cfg config.Config) {
 		if err != nil {
 			return errorJSON(c, fiber.StatusBadRequest, "некорректный id темы")
 		}
+
+		if roleErr := ensureDemoRoleAccess(c, "learner", "expert"); roleErr != nil {
+			return roleErr
+		}
+
 		return publicThemeExercises(c, db, themeID, "workbook")
 	})
 
@@ -188,10 +232,15 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, cfg config.Config) {
 		if err != nil {
 			return errorJSON(c, fiber.StatusBadRequest, "некорректный id темы")
 		}
+
+		if roleErr := ensureDemoRoleAccess(c, "learner", "expert"); roleErr != nil {
+			return roleErr
+		}
+
 		return publicThemeFull(c, db, themeID, "workbook")
 	})
 
-	expert := app.Group("/api", auth.RequireRoles(tokenManager, "expert"))
+	expert := app.Group("/api", auth.RequireRoles(tokenManager, "expert"), requireDemoRoles("expert"))
 
 	expert.Get("/translated-words", func(c *fiber.Ctx) error {
 		search := c.Query("search")

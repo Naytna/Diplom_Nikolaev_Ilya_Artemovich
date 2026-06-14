@@ -1,6 +1,7 @@
 export const API_URL = 'http://localhost:18080/api'
 
 export type UserRole = 'expert' | 'student'
+export type DemoRole = 'guest' | 'learner' | 'expert'
 
 export type AuthUser = {
   id: number
@@ -12,6 +13,8 @@ type ApiOptions = RequestInit & {
   authToken?: string | null
   onUnauthorized?: () => void
 }
+
+let currentDemoRole: DemoRole = 'guest'
 
 type ApiErrorPayload = {
   error?: string
@@ -27,6 +30,14 @@ export class ApiError extends Error {
   }
 }
 
+export function setDemoRole(role: DemoRole) {
+  currentDemoRole = role
+}
+
+export function getDemoRole() {
+  return currentDemoRole
+}
+
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers ?? {})
 
@@ -37,6 +48,8 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   if (options.authToken) {
     headers.set('Authorization', `Bearer ${options.authToken}`)
   }
+
+  headers.set('X-Demo-Role', currentDemoRole)
 
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -68,6 +81,8 @@ export async function publicApi<T>(path: string, options: RequestInit = {}): Pro
   if (!headers.has('Content-Type') && options.body && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
+
+  headers.set('X-Demo-Role', currentDemoRole)
 
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
