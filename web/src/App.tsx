@@ -103,31 +103,6 @@ function isExpert(user: AuthUser | null) {
   return user?.role === 'expert'
 }
 
-function isStudent(user: AuthUser | null) {
-  return user?.role === 'student'
-}
-
-function getPublicStatusLabel(status: string) {
-  if (status === 'published') return 'Опубликовано'
-  if (status === 'approved') return 'Одобрено'
-  if (status === 'draft') return 'Черновик'
-  if (status === 'rejected') return 'Отклонено'
-
-  return status
-}
-
-function getPublicStatusTone(status: string) {
-  if (status === 'published' || status === 'approved') {
-    return 'statusBadge ready'
-  }
-
-  if (status === 'rejected') {
-    return 'statusBadge blocked'
-  }
-
-  return 'statusBadge'
-}
-
 function saveAuthState(state: AuthState) {
   if (!state.token || !state.user) {
     localStorage.removeItem(STORAGE_KEY)
@@ -560,15 +535,6 @@ function App() {
               <h2>Курсы</h2>
             </div>
 
-            <div className="publicIntroCard">
-              <strong>
-                {isStudent(authState.user) ? 'Вы вошли как студент' : 'Публичный просмотр'}
-              </strong>
-              <p>
-                Здесь доступны только опубликованные курсы, темы, словарь, учебник и рабочая тетрадь без функций редактирования.
-              </p>
-            </div>
-
             {safeCourses.length === 0 && (
               <p className="muted">Опубликованные курсы отсутствуют</p>
             )}
@@ -585,9 +551,6 @@ function App() {
                     <small>{course.description}</small>
                   </div>
                   <div className="listItemMeta">
-                    <span className={getPublicStatusTone(course.status)}>
-                      {getPublicStatusLabel(course.status)}
-                    </span>
                     <small>Тем: {course.themes_count}</small>
                   </div>
                 </button>
@@ -602,13 +565,9 @@ function App() {
 
             {currentCourse ? (
               <div className="courseContextCard">
-                <span className="contextLabel">Выбранный курс</span>
                 <strong>{currentCourse.title}</strong>
                 <p>{currentCourse.description}</p>
                 <div className="contextMeta">
-                  <span className={getPublicStatusTone(currentCourse.status)}>
-                    {getPublicStatusLabel(currentCourse.status)}
-                  </span>
                   <span>Опубликованных тем: {currentCourse.themes_count}</span>
                 </div>
               </div>
@@ -730,7 +689,6 @@ function App() {
                     {themeFull.vocabulary.map((item) => (
                       <article className="dictCard" key={item.id}>
                         <div className="dictCardMain">
-                          <span className="dictCardLabel">Жест</span>
                           <strong>{item.gesture_name}</strong>
                           <p>{item.gesture_description}</p>
                         </div>
@@ -738,7 +696,6 @@ function App() {
                           <span>{item.display_text}</span>
                           <small>{item.concept_name}</small>
                           <small>Слово: {item.word_name}</small>
-                          <small>Жест: {item.gesture_name}</small>
                         </div>
                       </article>
                     ))}
