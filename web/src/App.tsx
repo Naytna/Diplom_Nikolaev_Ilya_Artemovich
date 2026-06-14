@@ -475,9 +475,9 @@ function App() {
     return (
       <main className="page">
         <header className="topbar">
-          <div>
+          <div className="brandBlock">
             <div className="eyebrow">Модуль генерации учебных заданий</div>
-            <h1>Методические материалы РЖЯ</h1>
+            <h1 className="topbarTitle">Методические материалы РЖЯ</h1>
           </div>
         </header>
         <LoginScreen
@@ -493,9 +493,9 @@ function App() {
   return (
     <main className="page">
       <header className="topbar">
-        <div>
+        <div className="brandBlock">
           <div className="eyebrow">Модуль генерации учебных заданий</div>
-          <h1>Методические материалы РЖЯ</h1>
+          <h1 className="topbarTitle">Методические материалы РЖЯ</h1>
         </div>
         <div className="topActions">
           <button
@@ -526,7 +526,9 @@ function App() {
             <>
               <div className="sessionBadge">
                 <strong>{authState.user.full_name}</strong>
-                <span>{authState.user.role === 'expert' ? 'Роль: эксперт' : 'Роль: студент'}</span>
+                <span className="sessionRole">
+                  {authState.user.role === 'expert' ? 'Роль: эксперт' : 'Роль: студент'}
+                </span>
               </div>
               <button className="secondaryButton" onClick={clearAuth}>
                 Выйти
@@ -578,8 +580,16 @@ function App() {
                   key={course.id}
                   onClick={() => setSelectedCourseId(course.id)}
                 >
-                  <span>{course.title}</span>
-                  <small>Тем: {course.themes_count}</small>
+                  <div className="listItemBody">
+                    <span>{course.title}</span>
+                    <small>{course.description}</small>
+                  </div>
+                  <div className="listItemMeta">
+                    <span className={getPublicStatusTone(course.status)}>
+                      {getPublicStatusLabel(course.status)}
+                    </span>
+                    <small>Тем: {course.themes_count}</small>
+                  </div>
                 </button>
               ))}
             </div>
@@ -634,11 +644,14 @@ function App() {
 
           <section className="panel content">
             <div className="contentHeader">
-              <div>
+              <div className="contentHeading">
                 <div className="eyebrow">
                   {themeFull?.theme.course_title ?? 'Учебный комплект'}
                 </div>
                 <h2>{themeFull?.theme.title ?? 'Материалы темы'}</h2>
+                {themeFull?.theme.description && (
+                  <p className="contentLead">{themeFull.theme.description}</p>
+                )}
               </div>
 
               <div className="modeSwitch">
@@ -717,6 +730,7 @@ function App() {
                     {themeFull.vocabulary.map((item) => (
                       <article className="dictCard" key={item.id}>
                         <div className="dictCardMain">
+                          <span className="dictCardLabel">Жест</span>
                           <strong>{item.gesture_name}</strong>
                           <p>{item.gesture_description}</p>
                         </div>
@@ -749,6 +763,7 @@ function App() {
                         <article className="exerciseCard" key={exercise.id}>
                           <div className="exerciseTop">
                             <span>Упражнение {index + 1}</span>
+                            <small>{mode === 'textbook' ? 'Режим учебника' : 'Самопроверка'}</small>
                           </div>
 
                           {mode === 'workbook' && (
@@ -768,7 +783,7 @@ function App() {
                                 onChange={(event) => updateWorkbookAnswer(exercise.id, event.target.value)}
                                 placeholder="Введите последовательность жестов в удобной для вас записи"
                               />
-                              <small>
+                              <small className="workbookAnswerHint">
                                 {showAnswer ? 'Образец последовательности' : 'Ответ скрыт для самопроверки'}
                               </small>
                             </div>
