@@ -114,33 +114,6 @@ h4 {
   flex-wrap: wrap;
 }
 
-.roleSwitch {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.roleButton {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 5px 8px;
-  background: #131920;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.roleButton:hover {
-  background: #1a2430;
-  border-color: #375065;
-  color: var(--text);
-}
-
-.roleButton.active {
-  background: #1a3144;
-  border-color: #31516a;
-  color: #dcecff;
-}
-
 .sessionPanel {
   margin-left: auto;
   display: flex;
@@ -791,7 +764,7 @@ h4 {
 .demoAccounts {
   margin-bottom: 14px;
   display: grid;
-  grid-template-columns: minmax(220px, 320px);
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 8px;
 }
 
