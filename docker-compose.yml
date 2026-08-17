@@ -30,7 +30,7 @@ services:
       DB_NAME: rsl_learning
       DB_SSLMODE: disable
     ports:
-      - "18080:8080"
+      - "28080:8080"
     depends_on:
       postgres:
         condition: service_healthy
